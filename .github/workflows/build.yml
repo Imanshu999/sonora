@@ -1,4 +1,4 @@
-name: Build APK Challenge Fixed
+name: Build Debug APK Final
 
 on:
   push:
@@ -23,8 +23,8 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Debug APK with IDE flag
-      run: ./gradlew clean assembleDebug -Pandroid.injected.invoked.from.ide=true --stacktrace
+    - name: Build Debug APK
+      run: ./gradlew clean assembleDebug --no-daemon
       env:
         ANDROID_HOME: /usr/local/lib/android/sdk
 
