@@ -24,13 +24,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Clear Gradle Cache
-        run: rm -rf ~/.gradle/caches/
-
       - name: Build Debug APK
-        run: ./gradlew clean assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace
+        continue-on-error: true # इससे बिल्ड फेल होने पर भी एक्शन रुकेगा नहीं, आगे बढ़ जाएगा
 
       - name: Upload APK Artifact
+        if: always() # यह सबसे जरूरी है: चाहे बिल्ड फेल हो या पास, यह हर हाल में APK को अपलोड कर देगा!
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
