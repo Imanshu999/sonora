@@ -1,5 +1,11 @@
 package com.example.util
 
+import java.net.URI
+
+/**
+ * Parses local playlist exports only. Network playlist links are resolved by
+ * ExternalPlaylistResolver so this class never scrapes third-party pages.
+ */
 data class ParsedTrackItem(
     val title: String,
     val artist: String = "",
@@ -7,95 +13,58 @@ data class ParsedTrackItem(
 )
 
 object PlaylistParser {
+    fun parseCsv(input: String): Pair<String, List<ParsedTrackItem>> {
+        val rows = CsvReader.read(input)
+        if (rows.isEmpty()) return "CSV Playlist" to emptyList()
 
-    fun parse(input: String): Pair<String, List<ParsedTrackItem>> {
-        val trimmed = input.trim()
-        val defaultName = "Imported Playlist"
+        val header = rows.first().map { it.trim().lowercase() }
+        val hasHeader = header.any { it in setOf("title", "track", "track name", "song", "artist", "artist name") }
+        val data = if (hasHeader) rows.drop(1) else rows
 
-        // 1. Detect CSV (multiple lines or commas)
-        if (trimmed.contains(",") || trimmed.contains("\n")) {
-            val lines = trimmed.split("\n", "\r\n").filter { it.isNotBlank() }
-            if (lines.size > 1 || (lines.isNotEmpty() && lines[0].contains(","))) {
-                return parseCsv(lines)
-            }
+        val titleIndex = header.indexOfFirst { it in setOf("title", "track", "track name", "song") }.takeIf { it >= 0 } ?: 0
+        val artistIndex = header.indexOfFirst { it in setOf("artist", "artist name") }.takeIf { it >= 0 } ?: 1
+
+        val tracks = data.mapNotNull { columns ->
+            val title = columns.getOrNull(titleIndex)?.trim().orEmpty()
+            val artist = columns.getOrNull(artistIndex)?.trim().orEmpty()
+            if (title.isBlank()) null else ParsedTrackItem(title, artist, "$title $artist".trim())
         }
-
-        // 2. Detect Spotify link
-        if (trimmed.contains("spotify.com/playlist/")) {
-            val playlistId = trimmed.substringAfter("playlist/").substringBefore("?").take(12)
-            // Extract sample representative tracks for the public playlist
-            val sampleTracks = listOf(
-                ParsedTrackItem("Soulmate", "Arijit Singh"),
-                ParsedTrackItem("Tauba Tauba", "Karan Aujla"),
-                ParsedTrackItem("Husn", "Anuv Jain"),
-                ParsedTrackItem("O Maahi", "Arijit Singh"),
-                ParsedTrackItem("Brown Munde", "AP Dhillon"),
-                ParsedTrackItem("Lover", "Diljit Dosanjh"),
-                ParsedTrackItem("Sajni", "Arijit Singh")
-            )
-            return Pair("Spotify Mix ($playlistId)", sampleTracks)
-        }
-
-        // 3. Detect YouTube Music / YouTube playlist link
-        if (trimmed.contains("list=") || trimmed.contains("youtube.com/playlist")) {
-            val listId = trimmed.substringAfter("list=").substringBefore("&").take(16)
-            val sampleTracks = listOf(
-                ParsedTrackItem("Kesariya", "Arijit Singh"),
-                ParsedTrackItem("Ve Kamleya", "Arijit Singh"),
-                ParsedTrackItem("Tum Hi Ho", "Arijit Singh"),
-                ParsedTrackItem("Chaleya", "Anirudh Ravichander"),
-                ParsedTrackItem("Softly", "Karan Aujla"),
-                ParsedTrackItem("295", "Sidhu Moose Wala")
-            )
-            return Pair("YouTube Playlist ($listId)", sampleTracks)
-        }
-
-        // 4. Detect Apple Music link
-        if (trimmed.contains("music.apple.com")) {
-            val name = trimmed.substringAfterLast("/").substringBefore("?").replace("-", " ").capitalizeWords()
-            val sampleTracks = listOf(
-                ParsedTrackItem("Kun Faya Kun", "A.R. Rahman"),
-                ParsedTrackItem("Kal Ho Naa Ho", "Sonu Nigam"),
-                ParsedTrackItem("Raataan Lambiyan", "Jubin Nautiyal"),
-                ParsedTrackItem("Zinda", "Siddharth Mahadevan")
-            )
-            return Pair(if (name.isNotBlank()) name else "Apple Music Playlist", sampleTracks)
-        }
-
-        // Fallback: single item
-        return Pair(defaultName, listOf(ParsedTrackItem(title = trimmed, rawQuery = trimmed)))
+        return "CSV Playlist" to tracks
     }
 
-    private fun parseCsv(lines: List<String>): Pair<String, List<ParsedTrackItem>> {
-        val tracks = mutableListOf<ParsedTrackItem>()
-        var playlistName = "CSV Playlist"
+    fun isPlaylistUrl(input: String): Boolean = runCatching {
+        val uri = URI(input.trim())
+        uri.scheme in setOf("http", "https") && (
+            uri.host?.contains("spotify.com") == true ||
+                uri.host?.contains("youtube.com") == true ||
+                uri.host?.contains("youtu.be") == true ||
+                uri.host?.contains("music.apple.com") == true
+            )
+    }.getOrDefault(false)
+}
 
-        for ((index, line) in lines.withIndex()) {
-            val parts = line.split(",").map { it.trim().removeSurrounding("\"") }
-            if (parts.isEmpty()) continue
-
-            // Check if first line is a header
-            if (index == 0 && (parts[0].equals("title", ignoreCase = true) || parts[0].equals("track", ignoreCase = true))) {
-                continue
-            }
-
-            if (parts.size >= 2) {
-                tracks.add(ParsedTrackItem(title = parts[0], artist = parts[1]))
-            } else if (parts.size == 1 && parts[0].isNotBlank()) {
-                val single = parts[0]
-                if (single.contains(" - ")) {
-                    val split = single.split(" - ")
-                    tracks.add(ParsedTrackItem(title = split[1].trim(), artist = split[0].trim()))
-                } else {
-                    tracks.add(ParsedTrackItem(title = single))
+private object CsvReader {
+    fun read(input: String): List<List<String>> {
+        val rows = mutableListOf<List<String>>()
+        val row = mutableListOf<String>()
+        val field = StringBuilder()
+        var quoted = false
+        var i = 0
+        while (i < input.length) {
+            val c = input[i]
+            when {
+                c == '"' && quoted && i + 1 < input.length && input[i + 1] == '"' -> {
+                    field.append('"'); i++
                 }
+                c == '"' -> quoted = !quoted
+                c == ',' && !quoted -> { row += field.toString(); field.clear() }
+                c == '\n' && !quoted -> { row += field.toString(); field.clear(); rows += row.toList(); row.clear() }
+                c != '\r' -> field.append(c)
             }
+            i++
         }
-
-        return Pair(playlistName, tracks)
-    }
-
-    private fun String.capitalizeWords(): String {
-        return split(" ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+        row += field.toString()
+        if (row.any { it.isNotBlank() }) rows += row.toList()
+        return rows
     }
 }
