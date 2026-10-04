@@ -6,6 +6,7 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
+  alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -103,6 +104,8 @@ dependencies {
   implementation(libs.media3.ui)
   implementation(libs.androidx.palette)
   implementation(libs.converter.moshi)
+  implementation(libs.converter.kotlinx.serialization)
+  implementation(libs.kotlinx.serialization.json)
   implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
   // implementation(libs.firebase.firestore)
