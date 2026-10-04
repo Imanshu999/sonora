@@ -402,7 +402,7 @@ fun PlaylistsTab(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.CloudDownload,
+                            imageVector = androidx.compose.material.icons.Icons.Default.Download,
                             contentDescription = null,
                             tint = VividCyan,
                             modifier = Modifier.size(24.dp)
