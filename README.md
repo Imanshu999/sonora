@@ -20,3 +20,16 @@ View your app in AI Studio: https://ai.studio/apps/fb3f64d8-ecae-4ffd-b723-77e5f
 5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
 6. Run the app on an emulator or physical device
 7. If you have already published your app in AI Studio, please [request upload key reset](https://support.google.com/googleplay/android-developer/answer/9842756#zippy=%2Crequest-an-upload-key-reset) in Google Play Console.
+
+## GitHub Actions build
+
+The repository CI is pinned to JDK 17, Android SDK 36, AGP 9.1.1 and Gradle 9.3.1.
+GitHub Actions installs Gradle 9.3.1 directly with `gradle/actions/setup-gradle`, so the CI build does not depend on a checked-in Gradle wrapper JAR.
+
+For a standard local Gradle Wrapper, install Gradle 9.3.1 once and run:
+
+```bash
+gradle wrapper --gradle-version 9.3.1
+```
+
+This creates the official `gradle/wrapper/gradle-wrapper.jar` and replaces the bootstrap launchers with the standard wrapper files.
