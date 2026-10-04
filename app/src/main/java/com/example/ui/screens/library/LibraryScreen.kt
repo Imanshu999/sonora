@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DownloadDone
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MusicNote
@@ -44,6 +45,8 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,6 +60,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,6 +95,15 @@ fun LibraryScreen(
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     val importViewModel = remember { ExternalPlaylistImportViewModel(SonoraApplication.instance.repository) }
+    val context = LocalContext.current
+    val csvPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            }.getOrNull()?.let(importViewModel::importCsv)
+            showImportDialog = true
+        }
+    }
     var viewingPlaylist by remember { mutableStateOf<Playlist?>(null) }
     val playlistTracks by remember(viewingPlaylist) {
         if (viewingPlaylist != null) {
@@ -132,6 +145,16 @@ fun LibraryScreen(
                             Icon(
                                 imageVector = Icons.Default.Download,
                                 contentDescription = "Import External Playlist",
+                                tint = VividCyan
+                            )
+                        }
+                        IconButton(
+                            onClick = { csvPicker.launch(arrayOf("text/csv", "text/plain", "application/csv")) },
+                            modifier = Modifier.testTag("import_csv_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.QueueMusic,
+                                contentDescription = "Import CSV playlist",
                                 tint = VividCyan
                             )
                         }
