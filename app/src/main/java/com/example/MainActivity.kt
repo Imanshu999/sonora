@@ -36,10 +36,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
@@ -59,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.ui.components.MiniPlayer
 import com.example.ui.screens.home.HomeScreen
+import com.example.ui.screens.search.DiscoverScreen
 import com.example.ui.screens.library.LibraryScreen
 import com.example.ui.screens.player.PlayerScreen
 import com.example.ui.screens.search.SearchScreen
@@ -127,6 +130,7 @@ fun SonoraMainApp(viewModel: SonoraViewModel) {
     val navItems = remember {
         listOf(
             NavItem("Home", Icons.Filled.Home, Icons.Outlined.Home, "nav_home"),
+            NavItem("Discover", Icons.Filled.Explore, Icons.Outlined.Explore, "nav_discover"),
             NavItem("Search", Icons.Filled.Search, Icons.Outlined.Search, "nav_search"),
             NavItem("Library", Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic, "nav_library"),
             NavItem("Settings", Icons.Filled.Settings, Icons.Outlined.Settings, "nav_settings")
@@ -159,11 +163,12 @@ fun SonoraMainApp(viewModel: SonoraViewModel) {
                 when (selectedTab) {
                     0 -> HomeScreen(
                         viewModel = viewModel,
-                        onNavigateToSearch = { selectedTab = 1 }
+                        onNavigateToSearch = { selectedTab = 2 }
                     )
-                    1 -> SearchScreen(viewModel = viewModel)
-                    2 -> LibraryScreen(viewModel = viewModel)
-                    3 -> SettingsScreen(viewModel = viewModel)
+                    1 -> DiscoverScreen(viewModel = viewModel)
+                    2 -> SearchScreen(viewModel = viewModel)
+                    3 -> LibraryScreen(viewModel = viewModel)
+                    4 -> SettingsScreen(viewModel = viewModel)
                 }
             }
         }
