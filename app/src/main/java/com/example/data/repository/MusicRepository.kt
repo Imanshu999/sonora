@@ -17,11 +17,14 @@ import com.example.data.source.MusicSource
 import com.example.data.source.YouTubeMusicCatalog
 import com.example.data.source.YouTubeMusicSource
 import com.example.model.HomeRow
+import com.example.model.HomeRowCatalog
 import com.example.model.MusicLanguage
 import com.example.model.Playlist
 import com.example.model.SyncedLyrics
 import com.example.model.Track
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -32,12 +35,13 @@ class MusicRepository(
     private val audiusApi: AudiusApi,
     private val lrclibApi: LrclibApi,
     private val dao: SonoraDao,
-    private val downloader: OfflineDownloader
+    private val downloader: OfflineDownloader,
+    private val jamendoClientId: String
 ) {
 
     val youTubeSource = YouTubeMusicSource()
     val audiusSource = AudiusSource(audiusApi)
-    val jamendoSource = JamendoSource(jamendoApi)
+    val jamendoSource = JamendoSource(jamendoApi, jamendoClientId)
 
     val sources: List<MusicSource> = listOf(youTubeSource, audiusSource, jamendoSource)
 
@@ -58,121 +62,65 @@ class MusicRepository(
         sourceFilter: String = "ALL",
         forceRefresh: Boolean = false
     ): List<HomeRow> = withContext(Dispatchers.IO) {
-        // 1. Try reading from Room cache first if not force refresh
+        val enabledSources = parseSourceFilter(sourceFilter)
+
         if (!forceRefresh) {
-            val cachedEntities = dao.getAllCachedHomeRows().firstOrNull() ?: emptyList()
-            if (cachedEntities.isNotEmpty()) {
-                val grouped = cachedEntities.groupBy { it.rowId }
-                val cachedRows = grouped.mapNotNull { (rowId, entities) ->
-                    val first = entities.first()
-                    val tracks = entities.mapNotNull { e -> dao.getTrackById(e.trackId)?.toTrack() }
-                    if (tracks.isNotEmpty()) {
-                        HomeRow(
-                            id = rowId,
-                            title = first.rowTitle,
-                            subtitle = first.rowSubtitle,
-                            tracks = tracks,
-                            languageRegion = first.languageRegion
-                        )
-                    } else null
-                }
-                if (cachedRows.isNotEmpty()) {
-                    return@withContext filterRowsByLanguage(cachedRows, language)
-                }
+            val cachedEntities = dao.getAllCachedHomeRows().firstOrNull().orEmpty()
+            val cachedRows = buildRowsFromCache(cachedEntities)
+            if (cachedRows.isNotEmpty()) {
+                return@withContext filterRows(cachedRows, language, enabledSources)
             }
         }
 
-        // 2. Fetch fresh audius trending for dynamic global blend
-        val audiusTracks = try {
-            audiusSource.getTrending(8)
-        } catch (_: Exception) {
-            emptyList()
+        val freshRows = coroutineScope {
+            HomeRowCatalog.rows.map { config ->
+                async {
+                    val tracks = mutableListOf<Track>()
+
+                    if ("YOUTUBE" in enabledSources) {
+                        tracks += youtubeCatalogTracks(config.catalogKey, config.query)
+                    }
+
+                    val queries = if (config.queries.isNotEmpty()) config.queries else listOfNotNull(config.query)
+
+                    if ("AUDIUS" in enabledSources) {
+                        tracks += if (config.id == "trending_india") {
+                            audiusSource.getTrending(10)
+                        } else {
+                            queries.flatMap { audiusSource.search(it, 4) }
+                        }
+                    }
+
+                    if ("JAMENDO" in enabledSources) {
+                        tracks += if (config.id == "trending_india") {
+                            jamendoSource.getTrending(10)
+                        } else {
+                            queries.flatMap { jamendoSource.search(it, 4) }
+                        }
+                    }
+
+                    HomeRow(
+                        id = config.id,
+                        title = config.title,
+                        subtitle = config.subtitle,
+                        tracks = tracks.distinctBy { it.id }.take(12),
+                        languageRegion = config.languageRegion
+                    )
+                }
+            }.map { it.await() }
         }
 
-        // 3. Construct single configurable list of home rows
-        val allRows = listOf(
-            HomeRow(
-                id = "trending_india",
-                title = "Trending in India",
-                subtitle = "Top chartbusters right now",
-                tracks = YouTubeMusicCatalog.trendingIndia,
-                languageRegion = "ALL"
-            ),
-            HomeRow(
-                id = "new_hindi",
-                title = "New Hindi Releases",
-                subtitle = "Fresh Bollywood and indie Hindi tracks",
-                tracks = YouTubeMusicCatalog.newHindiReleases,
-                languageRegion = "HINDI"
-            ),
-            HomeRow(
-                id = "punjabi_hits",
-                title = "Punjabi Hits",
-                subtitle = "Bhangra, pop, and Punjabi vibes",
-                tracks = YouTubeMusicCatalog.punjabiHits,
-                languageRegion = "PUNJABI"
-            ),
-            HomeRow(
-                id = "bollywood_classics",
-                title = "Bollywood Classics",
-                subtitle = "Timeless melodies from golden eras",
-                tracks = YouTubeMusicCatalog.bollywoodClassics,
-                languageRegion = "HINDI"
-            ),
-            HomeRow(
-                id = "romantic",
-                title = "Romantic",
-                subtitle = "Heartfelt tunes and love anthems",
-                tracks = YouTubeMusicCatalog.romanticTracks,
-                languageRegion = "ALL"
-            ),
-            HomeRow(
-                id = "workout",
-                title = "Workout",
-                subtitle = "High-octane energetic workout tracks",
-                tracks = YouTubeMusicCatalog.workoutTracks,
-                languageRegion = "ALL"
-            ),
-            HomeRow(
-                id = "lofi",
-                title = "Lo-fi",
-                subtitle = "Chill late night study & chill beats",
-                tracks = YouTubeMusicCatalog.lofiTracks,
-                languageRegion = "ALL"
-            ),
-            HomeRow(
-                id = "devotional",
-                title = "Devotional",
-                subtitle = "Spiritual peace and sacred chants",
-                tracks = YouTubeMusicCatalog.devotionalTracks,
-                languageRegion = "HINDI"
-            ),
-            HomeRow(
-                id = "top_artists",
-                title = "Top Artists Spotlight",
-                subtitle = "Arijit Singh, Diljit Dosanjh, Shreya Ghoshal & more",
-                tracks = (YouTubeMusicCatalog.allTracks.shuffled()).take(6),
-                languageRegion = "ALL"
-            ),
-            HomeRow(
-                id = "audius_global",
-                title = "Audius Global Discoveries",
-                subtitle = "Decentralized trending worldwide",
-                tracks = audiusTracks.ifEmpty { CuratedCatalog.tracks.take(6) },
-                languageRegion = "ENGLISH"
-            )
-        )
+        val syncedRows = freshRows.map { row ->
+            row.copy(tracks = syncWithDatabase(row.tracks))
+        }.filter { it.tracks.isNotEmpty() }
 
-        // 4. Save to Room database for offline-first persistence
         try {
             dao.clearHomeRows()
-            val entitiesToInsert = mutableListOf<HomeRowTrackEntity>()
-            val tracksToInsert = mutableListOf<TrackEntity>()
-
-            for (row in allRows) {
-                row.tracks.forEachIndexed { index, track ->
-                    tracksToInsert.add(TrackEntity.fromTrack(track))
-                    entitiesToInsert.add(
+            val tracks = syncedRows.flatMap { it.tracks }.distinctBy { it.id }
+            dao.upsertTracks(tracks.map(TrackEntity::fromTrack))
+            dao.insertHomeRowTracks(
+                syncedRows.flatMap { row ->
+                    row.tracks.mapIndexed { index, track ->
                         HomeRowTrackEntity(
                             rowId = row.id,
                             trackId = track.id,
@@ -181,32 +129,71 @@ class MusicRepository(
                             languageRegion = row.languageRegion,
                             sortOrder = index
                         )
-                    )
+                    }
                 }
-            }
-            dao.upsertTracks(tracksToInsert)
-            dao.insertHomeRowTracks(entitiesToInsert)
-        } catch (_: Exception) {}
+            )
+        } catch (_: Exception) {
+            // A network response should still be usable if the local cache is unavailable.
+        }
 
-        filterRowsByLanguage(allRows, language)
+        filterRows(syncedRows, language, enabledSources)
     }
 
-    private fun filterRowsByLanguage(rows: List<HomeRow>, language: MusicLanguage): List<HomeRow> {
-        return when (language) {
-            MusicLanguage.ALL -> rows
-            MusicLanguage.HINDI -> {
-                rows.sortedByDescending { it.languageRegion == "HINDI" }
-                    .filter { it.languageRegion == "ALL" || it.languageRegion == "HINDI" }
-            }
-            MusicLanguage.PUNJABI -> {
-                rows.sortedByDescending { it.languageRegion == "PUNJABI" }
-                    .filter { it.languageRegion == "ALL" || it.languageRegion == "PUNJABI" }
-            }
-            MusicLanguage.ENGLISH -> {
-                rows.sortedByDescending { it.languageRegion == "ENGLISH" }
-                    .filter { it.languageRegion == "ALL" || it.languageRegion == "ENGLISH" }
-            }
+    private fun parseSourceFilter(sourceFilter: String): Set<String> {
+        if (sourceFilter.isBlank() || sourceFilter == "ALL") {
+            return setOf("YOUTUBE", "AUDIUS", "JAMENDO")
         }
+        return sourceFilter.split(',').map { it.trim().uppercase() }.filter { it.isNotBlank() }.toSet()
+    }
+
+    private fun youtubeCatalogTracks(catalogKey: String?, query: String?): List<Track> {
+        return when (catalogKey) {
+            "trendingIndia" -> YouTubeMusicCatalog.trendingIndia
+            "newHindiReleases" -> YouTubeMusicCatalog.newHindiReleases
+            "punjabiHits" -> YouTubeMusicCatalog.punjabiHits
+            "bollywoodClassics" -> YouTubeMusicCatalog.bollywoodClassics
+            "romanticTracks" -> YouTubeMusicCatalog.romanticTracks
+            "workoutTracks" -> YouTubeMusicCatalog.workoutTracks
+            "lofiTracks" -> YouTubeMusicCatalog.lofiTracks
+            "devotionalTracks" -> YouTubeMusicCatalog.devotionalTracks
+            else -> query?.let { q ->
+                YouTubeMusicCatalog.allTracks.filter {
+                    it.title.contains(q, true) || it.artistName.contains(q, true) || it.genre.contains(q, true)
+                }.take(12)
+            }.orEmpty()
+        }
+    }
+
+    private fun buildRowsFromCache(entities: List<HomeRowTrackEntity>): List<HomeRow> {
+        val rowOrder = HomeRowCatalog.rows.mapIndexed { index, config -> config.id to index }.toMap()
+        return entities.groupBy { it.rowId }.toList().sortedBy { rowOrder[it.first] ?: Int.MAX_VALUE }.mapNotNull { (rowId, rowEntities) ->
+            val first = rowEntities.minByOrNull { it.sortOrder } ?: return@mapNotNull null
+            val tracks = rowEntities.sortedBy { it.sortOrder }.mapNotNull { dao.getTrackById(it.trackId)?.toTrack() }
+            if (tracks.isEmpty()) null else HomeRow(rowId, first.rowTitle, first.rowSubtitle, tracks, first.languageRegion)
+        }
+    }
+
+    private fun filterRows(
+        rows: List<HomeRow>,
+        language: MusicLanguage,
+        enabledSources: Set<String>
+    ): List<HomeRow> {
+        val languageFiltered = when (language) {
+            MusicLanguage.ALL -> rows
+            MusicLanguage.HINDI -> rows.filter { it.languageRegion == "ALL" || it.languageRegion == "HINDI" }
+            MusicLanguage.PUNJABI -> rows.filter { it.languageRegion == "ALL" || it.languageRegion == "PUNJABI" }
+            MusicLanguage.ENGLISH -> rows.filter { it.languageRegion == "ALL" || it.languageRegion == "ENGLISH" }
+        }
+        return languageFiltered.map { row ->
+            row.copy(tracks = row.tracks.filter { track -> sourceIdFor(track.source) in enabledSources })
+        }.filter { it.tracks.isNotEmpty() }
+    }
+
+    private fun sourceIdFor(source: String): String = when (source.lowercase()) {
+        "youtube music", "youtube" -> "YOUTUBE"
+        "audius" -> "AUDIUS"
+        "jamendo", "jamendo (cc)" -> "JAMENDO"
+        else -> source.uppercase()
     }
 
     suspend fun getTrendingTracks(): List<Track> = withContext(Dispatchers.IO) {
@@ -242,22 +229,24 @@ class MusicRepository(
         if (query.isBlank()) return@withContext emptyList()
         val results = mutableListOf<Track>()
 
+        val enabledSources = parseSourceFilter(sourceFilter)
+
         // 1. YouTube Music search
-        if (sourceFilter == "ALL" || sourceFilter == "YOUTUBE") {
+        if ("YOUTUBE" in enabledSources) {
             try {
                 results.addAll(youTubeSource.search(query))
             } catch (_: Exception) {}
         }
 
         // 2. Audius search
-        if (sourceFilter == "ALL" || sourceFilter == "AUDIUS") {
+        if ("AUDIUS" in enabledSources) {
             try {
                 results.addAll(audiusSource.search(query))
             } catch (_: Exception) {}
         }
 
         // 3. Jamendo search
-        if (sourceFilter == "ALL" || sourceFilter == "JAMENDO") {
+        if ("JAMENDO" in enabledSources) {
             try {
                 results.addAll(jamendoSource.search(query))
             } catch (_: Exception) {}
