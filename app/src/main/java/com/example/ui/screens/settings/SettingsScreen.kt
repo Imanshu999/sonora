@@ -155,13 +155,14 @@ fun SettingsScreen(
                 icon = Icons.Default.HighQuality,
                 title = "Music Source Engine",
                 subtitle = when {
-                    preferredSources.size == 3 -> "All Sources (Unified Discovery)"
+                    preferredSources.size == 4 -> "All Sources (Unified Discovery)"
                     preferredSources.isEmpty() -> "Select at least one source"
                     else -> preferredSources.sorted().joinToString(" + ") { key ->
                         when (key) {
                             "YOUTUBE" -> "YouTube Music"
                             "AUDIUS" -> "Audius"
                             "JAMENDO" -> "Jamendo"
+                            "FREE_TO_USE" -> "Free To Use"
                             else -> key
                         }
                     }
@@ -424,7 +425,8 @@ fun SettingsScreen(
         val sourceOptions = listOf(
             "YOUTUBE" to "YouTube Music (real extractor required)",
             "AUDIUS" to "Audius decentralized network",
-            "JAMENDO" to "Jamendo Creative Commons catalog"
+            "JAMENDO" to "Jamendo Creative Commons catalog",
+            "FREE_TO_USE" to "Free To Use royalty-free streaming catalog"
         )
         AlertDialog(
             onDismissRequest = { showSourceDialog = false },
