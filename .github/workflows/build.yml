@@ -25,7 +25,7 @@ jobs:
 
     - name: Generate debug.keystore in workspace root
       run: |
-        keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android
+        keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug, OU=Development, O=Android, L=Unknown, ST=Unknown, C=US"
 
     - name: Build Debug APK
       run: ./gradlew clean assembleDebug --no-daemon
