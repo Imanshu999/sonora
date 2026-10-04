@@ -7,6 +7,7 @@ import com.example.data.local.SonoraDatabase
 import com.example.data.remote.AudiusApi
 import com.example.data.remote.JamendoApi
 import com.example.data.remote.LrclibApi
+import com.example.data.remote.FreeToUseApi
 import com.example.data.repository.MusicRepository
 import com.example.playback.SonoraPlayer
 import com.squareup.moshi.Moshi
@@ -92,9 +93,16 @@ class SonoraApplication : Application() {
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
 
+        val freeToUseRetrofit = Retrofit.Builder()
+            .baseUrl("https://api.freetouse.com/v3/")
+            .client(okHttpClient)
+            .addConverterFactory(jsonConverter)
+            .build()
+
         val jamendoApi = jamendoRetrofit.create(JamendoApi::class.java)
         val audiusApi = audiusRetrofit.create(AudiusApi::class.java)
         val lrclibApi = lrclibRetrofit.create(LrclibApi::class.java)
+        val freeToUseApi = freeToUseRetrofit.create(FreeToUseApi::class.java)
 
         database = SonoraDatabase.getInstance(this)
         dataStoreManager = DataStoreManager(this)
@@ -106,7 +114,8 @@ class SonoraApplication : Application() {
             lrclibApi = lrclibApi,
             dao = database.sonoraDao(),
             downloader = downloader,
-            jamendoClientId = BuildConfig.JAMENDO_CLIENT_ID
+            jamendoClientId = BuildConfig.JAMENDO_CLIENT_ID,
+            freeToUseApi = freeToUseApi
                 .takeUnless { it.isBlank() || it == "MY_JAMENDO_CLIENT_ID" }
                 ?: "c4bfa6c8"
         )
