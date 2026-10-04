@@ -1,0 +1,67 @@
+package com.example.data.source
+
+import com.example.data.remote.CuratedCatalog
+import com.example.data.remote.JamendoApi
+import com.example.model.Track
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+class JamendoSource(
+    private val jamendoApi: JamendoApi
+) : MusicSource {
+
+    override val sourceId: String = "JAMENDO"
+    override val displayName: String = "Jamendo (CC)"
+
+    override suspend fun getTrending(limit: Int): List<Track> = withContext(Dispatchers.IO) {
+        try {
+            val response = jamendoApi.getTracks(limit = limit, boost = "popularity_month")
+            val tracks = response.results?.map { dto ->
+                Track(
+                    id = "jamendo_${dto.id}",
+                    title = dto.name,
+                    artistName = dto.artist_name,
+                    albumName = dto.album_name ?: "Single",
+                    durationSeconds = dto.duration ?: 180,
+                    audioUrl = dto.audio,
+                    artworkUrl = dto.image ?: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
+                    source = "Jamendo",
+                    licenseUrl = dto.license_ccurl ?: "https://creativecommons.org/licenses/by/4.0/",
+                    shareUrl = dto.shareurl ?: ""
+                )
+            }
+            if (!tracks.isNullOrEmpty()) {
+                return@withContext tracks
+            }
+        } catch (_: Exception) {}
+        CuratedCatalog.tracks.filter { it.source == "Jamendo" }.ifEmpty { CuratedCatalog.tracks }
+    }
+
+    override suspend fun search(query: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
+        try {
+            val response = jamendoApi.searchTracks(query = query, limit = limit)
+            val tracks = response.results?.map { dto ->
+                Track(
+                    id = "jamendo_${dto.id}",
+                    title = dto.name,
+                    artistName = dto.artist_name,
+                    albumName = dto.album_name ?: "",
+                    durationSeconds = dto.duration ?: 180,
+                    audioUrl = dto.audio,
+                    artworkUrl = dto.image ?: "",
+                    source = "Jamendo"
+                )
+            }
+            if (!tracks.isNullOrEmpty()) {
+                return@withContext tracks
+            }
+        } catch (_: Exception) {}
+        CuratedCatalog.tracks.filter {
+            it.title.contains(query, ignoreCase = true) || it.artistName.contains(query, ignoreCase = true)
+        }
+    }
+
+    override suspend fun getStreamUrl(track: Track): String {
+        return track.audioUrl
+    }
+}
