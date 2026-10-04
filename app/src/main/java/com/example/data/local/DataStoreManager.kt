@@ -40,7 +40,7 @@ class DataStoreManager(private val context: Context) {
 
     val preferredSourcesFlow: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         val raw = prefs[KEY_PREFERRED_SOURCE] ?: "ALL"
-        if (raw == "ALL") setOf("YOUTUBE", "AUDIUS", "JAMENDO")
+        if (raw == "ALL") setOf("YOUTUBE", "AUDIUS", "JAMENDO", "FREE_TO_USE")
         else raw.split(',').map { it.trim() }.filter { it.isNotBlank() }.toSet()
     }
 
@@ -131,14 +131,14 @@ class DataStoreManager(private val context: Context) {
 
     suspend fun setPreferredSource(source: String) {
         val sources = when (source) {
-            "ALL" -> setOf("YOUTUBE", "AUDIUS", "JAMENDO")
+            "ALL" -> setOf("YOUTUBE", "AUDIUS", "JAMENDO", "FREE_TO_USE")
             else -> setOf(source)
         }
         setPreferredSources(sources)
     }
 
     suspend fun setPreferredSources(sources: Set<String>) {
-        val normalized = sources.intersect(setOf("YOUTUBE", "AUDIUS", "JAMENDO"))
+        val normalized = sources.intersect(setOf("YOUTUBE", "AUDIUS", "JAMENDO", "FREE_TO_USE"))
         context.dataStore.edit { prefs ->
             prefs[KEY_PREFERRED_SOURCE] = if (normalized.size == 3) "ALL" else normalized.sorted().joinToString(",")
         }
