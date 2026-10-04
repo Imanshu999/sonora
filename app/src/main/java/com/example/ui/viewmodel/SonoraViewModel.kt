@@ -65,6 +65,9 @@ class SonoraViewModel(
     val selectedLanguage: StateFlow<MusicLanguage> = dataStoreManager.languageFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MusicLanguage.ALL)
 
+    val preferredSources: StateFlow<Set<String>> = dataStoreManager.preferredSourcesFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), setOf("YOUTUBE", "AUDIUS", "JAMENDO"))
+
     val preferredSource: StateFlow<String> = dataStoreManager.preferredSourceFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ALL")
 
@@ -138,7 +141,7 @@ class SonoraViewModel(
             try {
                 val rows = repository.getHomeRows(
                     language = language,
-                    sourceFilter = preferredSource.value,
+                    sourceFilter = preferredSources.value.joinToString(","),
                     forceRefresh = forceRefresh
                 )
                 val trending = repository.getTrendingTracks()
@@ -176,6 +179,16 @@ class SonoraViewModel(
     fun setPreferredSource(source: String) {
         viewModelScope.launch {
             dataStoreManager.setPreferredSource(source)
+            loadHomeData(forceRefresh = true)
+        }
+    }
+
+    fun setSourceEnabled(source: String, enabled: Boolean) {
+        viewModelScope.launch {
+            val current = preferredSources.value.toMutableSet()
+            if (enabled) current.add(source) else current.remove(source)
+            if (current.isEmpty()) return@launch
+            dataStoreManager.setPreferredSources(current)
             loadHomeData(forceRefresh = true)
         }
     }
