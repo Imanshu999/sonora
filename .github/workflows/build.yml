@@ -1,4 +1,4 @@
-name: APK Only
+name: Build Android APK
 
 on:
   workflow_dispatch:
@@ -7,73 +7,34 @@ on:
       - main
       - master
 
-permissions:
-  contents: read
-
 jobs:
   apk:
-    name: Build APK Only
+    name: Build Debug APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Java 17
-        uses: actions/setup-java@v5
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;36.0.0"
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      - name: Gradle
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '9.3.1'
-          cache-provider: basic
-
-      - name: Generate wrapper
-        run: |
-          gradle wrapper \
-            --gradle-version 9.3.1 \
-            --distribution-type bin
-
-      - name: Make wrapper executable
-        run: chmod +x ./gradlew
-
-      # No tests.
-      # No unit tests.
-      # No lint.
-      # No release signing.
-      # Only APK compilation.
-      - name: Build Debug APK
-        run: |
-          ./gradlew :app:assembleDebug \
-            --no-daemon \
-            --stacktrace \
-            --no-configuration-cache
-
-      - name: Locate APK
-        run: |
-          find app/build/outputs/apk \
-            -type f \
-            -name "*.apk" \
-            -print
+      - name: Build with Gradle
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LastWave-debug-APK
+          name: app-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
