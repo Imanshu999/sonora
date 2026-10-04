@@ -1,6 +1,7 @@
 package com.example.playback
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -11,6 +12,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.core.content.ContextCompat
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -91,6 +93,22 @@ class SonoraPlayer(
                 }
             }
 
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val id = mediaItem?.mediaId ?: return
+                val index = _state.value.queue.indexOfFirst { it.id == id }
+                if (index >= 0) {
+                    val track = _state.value.queue[index]
+                    _state.value = _state.value.copy(
+                        currentTrack = track,
+                        queueIndex = index,
+                        currentPositionMs = exoPlayer.currentPosition,
+                        durationMs = if (exoPlayer.duration > 0) exoPlayer.duration
+                            else (track.durationSeconds * 1000L).coerceAtLeast(1000L),
+                        errorMessage = null
+                    )
+                }
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 val isLoading = playbackState == Player.STATE_BUFFERING
                 val duration = if (exoPlayer.duration > 0) exoPlayer.duration else 0L
@@ -130,6 +148,13 @@ class SonoraPlayer(
         originalQueue = queue
         val index = queue.indexOfFirst { it.id == track.id }.let { if (it >= 0) it else 0 }
 
+        // MediaSessionService owns the background lifecycle/notification. Starting it here
+        // ensures playback is promoted to a foreground media service as soon as audio starts.
+        runCatching {
+            val serviceIntent = Intent(context, SonoraMediaSessionService::class.java)
+            ContextCompat.startForegroundService(context, serviceIntent)
+        }
+
         _state.value = _state.value.copy(
             currentTrack = track,
             queue = queue,
@@ -143,32 +168,40 @@ class SonoraPlayer(
     }
 
     private fun loadAndPlay(track: Track) {
-        val uri = Uri.parse(track.playbackUri)
-        val mediaMetadata = MediaMetadata.Builder()
-            .setTitle(track.title)
-            .setArtist(track.artistName)
-            .setAlbumTitle(track.albumName)
-            .setArtworkUri(if (track.artworkUrl.isNotEmpty()) Uri.parse(track.artworkUrl) else null)
-            .build()
+        val queue = _state.value.queue.ifEmpty { listOf(track) }
+        val startIndex = queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
 
-        val mediaItem = MediaItem.Builder()
-            .setUri(uri)
-            .setMediaId(track.id)
-            .setMediaMetadata(mediaMetadata)
-            .build()
+        fun mediaItemFor(item: Track): MediaItem {
+            val metadata = MediaMetadata.Builder()
+                .setTitle(item.title)
+                .setArtist(item.artistName)
+                .setAlbumTitle(item.albumName)
+                .setArtworkUri(
+                    item.artworkUrl.takeIf { it.isNotBlank() }?.let(Uri::parse)
+                )
+                .build()
+
+            return MediaItem.Builder()
+                .setUri(Uri.parse(item.playbackUri))
+                .setMediaId(item.id)
+                .setMediaMetadata(metadata)
+                .build()
+        }
+
+        val mediaItems = queue.map(::mediaItemFor)
 
         if (crossfadeSeconds > 0 && exoPlayer.isPlaying) {
-            // Smooth crossfade out then in
+            // Smooth crossfade out then in while preserving the full queue for system controls.
             scope.launch {
                 fadeVolume(1f, 0f, 250)
-                exoPlayer.setMediaItem(mediaItem)
+                exoPlayer.setMediaItems(mediaItems, startIndex, 0L)
                 exoPlayer.prepare()
                 exoPlayer.play()
                 fadeVolume(0f, 1f, 350)
             }
         } else {
             exoPlayer.volume = 1f
-            exoPlayer.setMediaItem(mediaItem)
+            exoPlayer.setMediaItems(mediaItems, startIndex, 0L)
             exoPlayer.prepare()
             exoPlayer.play()
         }
@@ -305,6 +338,11 @@ class SonoraPlayer(
             RepeatMode.OFF -> RepeatMode.ALL
             RepeatMode.ALL -> RepeatMode.ONE
             RepeatMode.ONE -> RepeatMode.OFF
+        }
+        exoPlayer.repeatMode = when (nextMode) {
+            RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+            RepeatMode.ONE -> Player.REPEAT_MODE_ONE
         }
         _state.value = _state.value.copy(repeatMode = nextMode)
     }
