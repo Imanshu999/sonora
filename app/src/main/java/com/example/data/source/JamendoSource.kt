@@ -1,6 +1,5 @@
 package com.example.data.source
 
-import com.example.data.remote.CuratedCatalog
 import com.example.data.remote.JamendoApi
 import com.example.model.Track
 import kotlinx.coroutines.Dispatchers
@@ -31,11 +30,10 @@ class JamendoSource(
                     shareUrl = dto.shareurl ?: ""
                 )
             }
-            if (!tracks.isNullOrEmpty()) {
-                return@withContext tracks
-            }
-        } catch (_: Exception) {}
-        CuratedCatalog.tracks.filter { it.source == "Jamendo" }.ifEmpty { CuratedCatalog.tracks }
+            return@withContext tracks.orEmpty()
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     override suspend fun search(query: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
@@ -53,12 +51,9 @@ class JamendoSource(
                     source = "Jamendo"
                 )
             }
-            if (!tracks.isNullOrEmpty()) {
-                return@withContext tracks
-            }
-        } catch (_: Exception) {}
-        CuratedCatalog.tracks.filter {
-            it.title.contains(query, ignoreCase = true) || it.artistName.contains(query, ignoreCase = true)
+            return@withContext tracks.orEmpty()
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
