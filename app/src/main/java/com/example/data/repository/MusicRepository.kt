@@ -7,14 +7,12 @@ import com.example.data.local.PlaylistTrackCrossRef
 import com.example.data.local.SonoraDao
 import com.example.data.local.TrackEntity
 import com.example.data.remote.AudiusApi
-import com.example.data.remote.CuratedCatalog
 import com.example.data.remote.JamendoApi
 import com.example.data.remote.LrcParser
 import com.example.data.remote.LrclibApi
 import com.example.data.source.AudiusSource
 import com.example.data.source.JamendoSource
 import com.example.data.source.MusicSource
-import com.example.data.source.YouTubeMusicCatalog
 import com.example.data.source.YouTubeMusicSource
 import com.example.model.HomeRow
 import com.example.model.HomeRowCatalog
@@ -78,24 +76,25 @@ class MusicRepository(
                     val tracks = mutableListOf<Track>()
 
                     if ("YOUTUBE" in enabledSources) {
-                        tracks += youtubeCatalogTracks(config.catalogKey, config.query)
+                        tracks += if (config.useTrending) youTubeSource.getTrending(12) else config.queries.flatMap { youTubeSource.search(it, 4) } + listOfNotNull(config.query).flatMap { youTubeSource.search(it, 6) }
                     }
 
-                    val queries = if (config.queries.isNotEmpty()) config.queries else listOfNotNull(config.query)
+                    val baseQueries = if (config.queries.isNotEmpty()) config.queries else listOfNotNull(config.query)
+                    val queries = if (language == MusicLanguage.ALL) baseQueries else baseQueries.map { "$it ${language.title}" }
 
                     if ("AUDIUS" in enabledSources) {
-                        tracks += if (config.id == "trending_india") {
-                            audiusSource.getTrending(10)
+                        tracks += if (config.useTrending) {
+                            audiusSource.getTrending(12)
                         } else {
-                            queries.flatMap { audiusSource.search(it, 4) }
+                            queries.flatMap { audiusSource.search(it, 5) }
                         }
                     }
 
                     if ("JAMENDO" in enabledSources) {
-                        tracks += if (config.id == "trending_india") {
-                            jamendoSource.getTrending(10)
+                        tracks += if (config.useTrending) {
+                            jamendoSource.getTrending(12)
                         } else {
-                            queries.flatMap { jamendoSource.search(it, 4) }
+                            queries.flatMap { jamendoSource.search(it, 5) }
                         }
                     }
 
@@ -146,24 +145,6 @@ class MusicRepository(
         return sourceFilter.split(',').map { it.trim().uppercase() }.filter { it.isNotBlank() }.toSet()
     }
 
-    private fun youtubeCatalogTracks(catalogKey: String?, query: String?): List<Track> {
-        return when (catalogKey) {
-            "trendingIndia" -> YouTubeMusicCatalog.trendingIndia
-            "newHindiReleases" -> YouTubeMusicCatalog.newHindiReleases
-            "punjabiHits" -> YouTubeMusicCatalog.punjabiHits
-            "bollywoodClassics" -> YouTubeMusicCatalog.bollywoodClassics
-            "romanticTracks" -> YouTubeMusicCatalog.romanticTracks
-            "workoutTracks" -> YouTubeMusicCatalog.workoutTracks
-            "lofiTracks" -> YouTubeMusicCatalog.lofiTracks
-            "devotionalTracks" -> YouTubeMusicCatalog.devotionalTracks
-            else -> query?.let { q ->
-                YouTubeMusicCatalog.allTracks.filter {
-                    it.title.contains(q, true) || it.artistName.contains(q, true) || it.genre.contains(q, true)
-                }.take(12)
-            }.orEmpty()
-        }
-    }
-
     private fun buildRowsFromCache(entities: List<HomeRowTrackEntity>): List<HomeRow> {
         val rowOrder = HomeRowCatalog.rows.mapIndexed { index, config -> config.id to index }.toMap()
         return entities.groupBy { it.rowId }.toList().sortedBy { rowOrder[it.first] ?: Int.MAX_VALUE }.mapNotNull { (rowId, rowEntities) ->
@@ -178,11 +159,12 @@ class MusicRepository(
         language: MusicLanguage,
         enabledSources: Set<String>
     ): List<HomeRow> {
-        val languageFiltered = when (language) {
-            MusicLanguage.ALL -> rows
-            MusicLanguage.HINDI -> rows.filter { it.languageRegion == "ALL" || it.languageRegion == "HINDI" }
-            MusicLanguage.PUNJABI -> rows.filter { it.languageRegion == "ALL" || it.languageRegion == "PUNJABI" }
-            MusicLanguage.ENGLISH -> rows.filter { it.languageRegion == "ALL" || it.languageRegion == "ENGLISH" }
+        val languageFiltered = if (language == MusicLanguage.ALL) rows else rows.map { row ->
+            val query = language.title.removeSuffix(" Language").removeSuffix(" & Bollywood").lowercase()
+            row.copy(tracks = row.tracks.filter { track ->
+                track.title.contains(query, true) || track.artistName.contains(query, true) ||
+                    track.albumName.contains(query, true) || track.genre.contains(query, true)
+            })
         }
         return languageFiltered.map { row ->
             row.copy(tracks = row.tracks.filter { track -> sourceIdFor(track.source) in enabledSources })
@@ -198,31 +180,20 @@ class MusicRepository(
 
     suspend fun getTrendingTracks(): List<Track> = withContext(Dispatchers.IO) {
         val tracks = mutableListOf<Track>()
-        tracks.addAll(YouTubeMusicCatalog.trendingIndia)
-        try {
-            val audiusResp = audiusSource.getTrending(6)
-            tracks.addAll(audiusResp)
-        } catch (_: Exception) {}
-        syncWithDatabase(tracks)
+        tracks += audiusSource.getTrending(20)
+        tracks += jamendoSource.getTrending(20)
+        if ("YOUTUBE" in parseSourceFilter("ALL")) tracks += youTubeSource.getTrending(20)
+        syncWithDatabase(tracks.distinctBy { it.id })
     }
 
     suspend fun getNewReleases(): List<Track> = withContext(Dispatchers.IO) {
-        val tracks = mutableListOf<Track>()
-        tracks.addAll(YouTubeMusicCatalog.newHindiReleases)
-        tracks.addAll(YouTubeMusicCatalog.punjabiHits)
-        syncWithDatabase(tracks)
+        val tracks = (audiusSource.search("new music", 15) + jamendoSource.search("new music", 15))
+        syncWithDatabase(tracks.distinctBy { it.id })
     }
 
     suspend fun getTracksByGenre(genre: String): List<Track> = withContext(Dispatchers.IO) {
-        val local = YouTubeMusicCatalog.allTracks.filter { it.genre.contains(genre, ignoreCase = true) }
-        if (local.isNotEmpty()) {
-            return@withContext syncWithDatabase(local)
-        }
-        try {
-            val audius = audiusSource.search(genre, 10)
-            if (audius.isNotEmpty()) return@withContext syncWithDatabase(audius)
-        } catch (_: Exception) {}
-        syncWithDatabase(CuratedCatalog.tracks.filter { it.genre.contains(genre, ignoreCase = true) }.ifEmpty { CuratedCatalog.tracks })
+        val tracks = (audiusSource.search(genre, 15) + jamendoSource.search(genre, 15) + youTubeSource.search(genre, 15))
+        syncWithDatabase(tracks.distinctBy { it.id })
     }
 
     suspend fun search(query: String, sourceFilter: String = "ALL"): List<Track> = withContext(Dispatchers.IO) {
@@ -252,14 +223,6 @@ class MusicRepository(
             } catch (_: Exception) {}
         }
 
-        // Fallback matching if empty
-        if (results.isEmpty()) {
-            val fallbackMatches = (YouTubeMusicCatalog.allTracks + CuratedCatalog.tracks).filter {
-                it.title.contains(query, ignoreCase = true) ||
-                it.artistName.contains(query, ignoreCase = true)
-            }
-            results.addAll(fallbackMatches)
-        }
 
         syncWithDatabase(results.distinctBy { it.id })
     }
@@ -283,7 +246,7 @@ class MusicRepository(
             } catch (_: Exception) {}
         }
 
-        CuratedCatalog.getSampleLyrics(track)
+        return@withContext SyncedLyrics(trackId = track.id, isSynced = false, lines = emptyList(), rawPlain = "")
     }
 
     suspend fun toggleLiked(track: Track): Boolean = withContext(Dispatchers.IO) {
@@ -308,8 +271,7 @@ class MusicRepository(
 
     suspend fun getSmartMix(): List<Track> = withContext(Dispatchers.IO) {
         val topHistory = dao.getTopPlayedTracks(10).firstOrNull() ?: emptyList()
-        val allTracks = (topHistory.map { it.toTrack() } + YouTubeMusicCatalog.allTracks + CuratedCatalog.tracks).distinctBy { it.id }
-        allTracks.shuffled()
+        topHistory.map { it.toTrack() }.distinctBy { it.id }.shuffled()
     }
 
     suspend fun createPlaylist(name: String, description: String = ""): Long = withContext(Dispatchers.IO) {
