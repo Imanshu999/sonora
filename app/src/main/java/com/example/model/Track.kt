@@ -8,9 +8,9 @@ data class Track(
     val durationSeconds: Int = 0,
     val audioUrl: String,
     val artworkUrl: String,
-    val source: String = "Jamendo", // "Jamendo" or "Audius"
+    val source: String = "",
     val genre: String = "",
-    val licenseUrl: String = "https://creativecommons.org/licenses/by/3.0/",
+    val licenseUrl: String = "",
     val shareUrl: String = "",
     val isDownloadable: Boolean = true,
     val localUri: String? = null,
