@@ -86,33 +86,18 @@ fun ExternalPlaylistImportDialog(
                 when (val state = importState) {
                     is ImportState.Idle, is ImportState.Error -> {
                         Text(
-                            text = "Paste a public playlist link (Spotify, YouTube, Apple Music) or CSV text to import tracks into Room:",
+                            text = "Paste a playlist URL or CSV text to match tracks against the app catalog and save the result locally:",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Quick presets chips
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            FilterChip(
-                                selected = false,
-                                onClick = {
-                                    importViewModel.onInputChanged("https://open.spotify.com/playlist/37i9dQZF1DX0XUfTFmNBRM")
-                                },
-                                label = { Text("Spotify Link", fontSize = 11.sp) }
-                            )
-                            FilterChip(
-                                selected = false,
-                                onClick = {
-                                    importViewModel.onInputChanged("https://music.youtube.com/playlist?list=RDCLAK5uy_kfd5jH8")
-                                },
-                                label = { Text("YouTube Link", fontSize = 11.sp) }
-                            )
-                        }
+                        Text(
+                            text = "CSV imports work offline. Playlist URLs are resolved only through configured official APIs; this build does not scrape Spotify, YouTube, or Apple Music pages.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
                         Spacer(modifier = Modifier.height(10.dp))
 
