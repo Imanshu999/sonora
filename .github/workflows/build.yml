@@ -5,7 +5,7 @@ on:
     branches: [ "main", "master", "dev" ]
   pull_request:
     branches: [ "main", "master", "dev" ]
-  workflow_dispatch: # इससे तू Actions टैब से खुद मैन्युअली भी चला सकता है
+  workflow_dispatch:
 
 jobs:
   build:
@@ -23,6 +23,9 @@ jobs:
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+
+      - name: Clear Gradle Cache
+        run: rm -rf ~/.gradle/caches/
 
       - name: Build Debug APK
         run: ./gradlew clean assembleDebug --stacktrace
