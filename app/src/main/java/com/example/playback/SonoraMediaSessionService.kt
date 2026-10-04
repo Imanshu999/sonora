@@ -28,6 +28,10 @@ class SonoraMediaSessionService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(pendingIntent)
             .build()
+
+        // Media3's MediaSessionService automatically publishes a MediaStyle notification
+        // and promotes this service to the foreground while playback is active.
+        // The player itself is owned by SonoraApplication, so the service must not release it.
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -35,11 +39,10 @@ class SonoraMediaSessionService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        mediaSession?.run {
-            player.release()
-            release()
-            mediaSession = null
-        }
+        mediaSession?.release()
+        mediaSession = null
+        // Do not release SonoraApplication.player here. The application owns the player
+        // and the UI may still be using it when the service lifecycle changes.
         super.onDestroy()
     }
 }
