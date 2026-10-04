@@ -116,8 +116,6 @@ class SonoraApplication : Application() {
             downloader = downloader,
             jamendoClientId = BuildConfig.JAMENDO_CLIENT_ID,
             freeToUseApi = freeToUseApi
-                .takeUnless { it.isBlank() || it == "MY_JAMENDO_CLIENT_ID" }
-                ?: "c4bfa6c8"
         )
 
         player = SonoraPlayer(this) { finishedTrack ->
