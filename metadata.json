@@ -1,0 +1,6 @@
+{
+  "name": "Sonora",
+  "description": "Premium music streaming app powered by Jamendo and Audius with synced lyrics, offline downloads, smart radio, and background playback.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
