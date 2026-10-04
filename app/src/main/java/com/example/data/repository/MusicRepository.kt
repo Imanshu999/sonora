@@ -12,6 +12,7 @@ import com.example.data.remote.LrcParser
 import com.example.data.remote.LrclibApi
 import com.example.data.source.AudiusSource
 import com.example.data.source.JamendoSource
+import com.example.data.source.FreeToUseSource
 import com.example.data.source.MusicSource
 import com.example.data.source.YouTubeMusicSource
 import com.example.model.HomeRow
@@ -34,14 +35,21 @@ class MusicRepository(
     private val lrclibApi: LrclibApi,
     private val dao: SonoraDao,
     private val downloader: OfflineDownloader,
-    private val jamendoClientId: String
+    private val jamendoClientId: String,
+    private val freeToUseApi: com.example.data.remote.FreeToUseApi
 ) {
 
     val youTubeSource = YouTubeMusicSource()
     val audiusSource = AudiusSource(audiusApi)
     val jamendoSource = JamendoSource(jamendoApi, jamendoClientId)
+    val freeToUseSource = FreeToUseSource(freeToUseApi)
 
-    val sources: List<MusicSource> = listOf(youTubeSource, audiusSource, jamendoSource)
+    val sources: List<MusicSource> = listOf(
+        youTubeSource,
+        audiusSource,
+        jamendoSource,
+        freeToUseSource
+    )
 
     val likedTracks: Flow<List<Track>> =
         dao.getLikedTracks().map { list -> list.map { it.toTrack() } }
@@ -131,6 +139,16 @@ class MusicRepository(
                         }
                     }
 
+                    if ("FREE_TO_USE" in enabledSources) {
+                        tracks += if (config.useTrending) {
+                            freeToUseSource.getTrending(12)
+                        } else {
+                            queries.flatMap {
+                                freeToUseSource.search(it, 5)
+                            }
+                        }
+                    }
+
                     HomeRow(
                         id = config.id,
                         title = config.title,
@@ -191,7 +209,8 @@ class MusicRepository(
             return setOf(
                 "YOUTUBE",
                 "AUDIUS",
-                "JAMENDO"
+                "JAMENDO",
+                "FREE_TO_USE"
             )
         }
 
@@ -300,6 +319,7 @@ class MusicRepository(
 
             tracks += audiusSource.getTrending(20)
             tracks += jamendoSource.getTrending(20)
+            tracks += freeToUseSource.getTrending(20)
 
             if ("YOUTUBE" in parseSourceFilter("ALL")) {
                 tracks += youTubeSource.getTrending(20)
@@ -314,7 +334,8 @@ class MusicRepository(
         withContext(Dispatchers.IO) {
             val tracks =
                 audiusSource.search("new music", 15) +
-                jamendoSource.search("new music", 15)
+                jamendoSource.search("new music", 15) +
+                freeToUseSource.search("new music", 15)
 
             syncWithDatabase(
                 tracks.distinctBy { it.id }
@@ -328,7 +349,8 @@ class MusicRepository(
             val tracks =
                 audiusSource.search(genre, 15) +
                 jamendoSource.search(genre, 15) +
-                youTubeSource.search(genre, 15)
+                youTubeSource.search(genre, 15) +
+                freeToUseSource.search(genre, 15)
 
             syncWithDatabase(
                 tracks.distinctBy { it.id }
@@ -371,6 +393,16 @@ class MusicRepository(
             try {
                 results.addAll(
                     jamendoSource.search(query)
+                )
+            } catch (_: Exception) {
+            }
+        }
+
+        // 4. Free To Use search
+        if ("FREE_TO_USE" in enabledSources) {
+            try {
+                results.addAll(
+                    freeToUseSource.search(query)
                 )
             } catch (_: Exception) {
             }
