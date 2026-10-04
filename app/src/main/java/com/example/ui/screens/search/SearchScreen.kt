@@ -64,7 +64,7 @@ fun SearchScreen(
     val downloadStatuses by viewModel.downloadStatuses.collectAsState()
     val focusManager = LocalFocusManager.current
 
-    val sources = listOf("ALL", "Jamendo", "Audius")
+    val sources = listOf("ALL", "Jamendo", "Audius", "Free To Use")
     val trendingTags = listOf("Synthwave", "Cyberpunk", "Acoustic", "Deep House", "Jazz Piano", "Lo-Fi Beats", "Chillout", "Rock Anthem")
 
     Column(
@@ -145,10 +145,16 @@ fun SearchScreen(
                 )
 
                 sources.forEach { source ->
-                    val selected = searchState.selectedSource == source
+                    val sourceKey = when (source) {
+                        "Jamendo" -> "JAMENDO"
+                        "Audius" -> "AUDIUS"
+                        "Free To Use" -> "FREE_TO_USE"
+                        else -> "ALL"
+                    }
+                    val selected = searchState.selectedSource == sourceKey
                     FilterChip(
                         selected = selected,
-                        onClick = { viewModel.setSourceFilter(source) },
+                        onClick = { viewModel.setSourceFilter(sourceKey) },
                         label = {
                             Text(
                                 text = if (source == "ALL") "All Sources" else source,
