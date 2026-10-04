@@ -43,9 +43,14 @@ class MusicRepository(
 
     val sources: List<MusicSource> = listOf(youTubeSource, audiusSource, jamendoSource)
 
-    val likedTracks: Flow<List<Track>> = dao.getLikedTracks().map { list -> list.map { it.toTrack() } }
-    val downloadedTracks: Flow<List<Track>> = dao.getDownloadedTracks().map { list -> list.map { it.toTrack() } }
-    val listeningHistory: Flow<List<Track>> = dao.getListeningHistory(30).map { list -> list.map { it.toTrack() } }
+    val likedTracks: Flow<List<Track>> =
+        dao.getLikedTracks().map { list -> list.map { it.toTrack() } }
+
+    val downloadedTracks: Flow<List<Track>> =
+        dao.getDownloadedTracks().map { list -> list.map { it.toTrack() } }
+
+    val listeningHistory: Flow<List<Track>> =
+        dao.getListeningHistory(30).map { list -> list.map { it.toTrack() } }
 
     val playlists: Flow<List<Playlist>> = dao.getAllPlaylists().map { entities ->
         entities.map { entity ->
@@ -65,8 +70,13 @@ class MusicRepository(
         if (!forceRefresh) {
             val cachedEntities = dao.getAllCachedHomeRows().firstOrNull().orEmpty()
             val cachedRows = buildRowsFromCache(cachedEntities)
+
             if (cachedRows.isNotEmpty()) {
-                return@withContext filterRows(cachedRows, language, enabledSources)
+                return@withContext filterRows(
+                    cachedRows,
+                    language,
+                    enabledSources
+                )
             }
         }
 
@@ -76,17 +86,38 @@ class MusicRepository(
                     val tracks = mutableListOf<Track>()
 
                     if ("YOUTUBE" in enabledSources) {
-                        tracks += if (config.useTrending) youTubeSource.getTrending(12) else config.queries.flatMap { youTubeSource.search(it, 4) } + listOfNotNull(config.query).flatMap { youTubeSource.search(it, 6) }
+                        tracks += if (config.useTrending) {
+                            youTubeSource.getTrending(12)
+                        } else {
+                            config.queries.flatMap {
+                                youTubeSource.search(it, 4)
+                            } + listOfNotNull(config.query).flatMap {
+                                youTubeSource.search(it, 6)
+                            }
+                        }
                     }
 
-                    val baseQueries = if (config.queries.isNotEmpty()) config.queries else listOfNotNull(config.query)
-                    val queries = if (language == MusicLanguage.ALL) baseQueries else baseQueries.map { "$it ${language.title}" }
+                    val baseQueries =
+                        if (config.queries.isNotEmpty()) {
+                            config.queries
+                        } else {
+                            listOfNotNull(config.query)
+                        }
+
+                    val queries =
+                        if (language == MusicLanguage.ALL) {
+                            baseQueries
+                        } else {
+                            baseQueries.map { "$it ${language.title}" }
+                        }
 
                     if ("AUDIUS" in enabledSources) {
                         tracks += if (config.useTrending) {
                             audiusSource.getTrending(12)
                         } else {
-                            queries.flatMap { audiusSource.search(it, 5) }
+                            queries.flatMap {
+                                audiusSource.search(it, 5)
+                            }
                         }
                     }
 
@@ -94,7 +125,9 @@ class MusicRepository(
                         tracks += if (config.useTrending) {
                             jamendoSource.getTrending(12)
                         } else {
-                            queries.flatMap { jamendoSource.search(it, 5) }
+                            queries.flatMap {
+                                jamendoSource.search(it, 5)
+                            }
                         }
                     }
 
@@ -110,13 +143,24 @@ class MusicRepository(
         }
 
         val syncedRows = freshRows.map { row ->
-            row.copy(tracks = syncWithDatabase(row.tracks))
-        }.filter { it.tracks.isNotEmpty() }
+            row.copy(
+                tracks = syncWithDatabase(row.tracks)
+            )
+        }.filter {
+            it.tracks.isNotEmpty()
+        }
 
         try {
             dao.clearHomeRows()
-            val tracks = syncedRows.flatMap { it.tracks }.distinctBy { it.id }
-            dao.upsertTracks(tracks.map(TrackEntity::fromTrack))
+
+            val tracks = syncedRows
+                .flatMap { it.tracks }
+                .distinctBy { it.id }
+
+            dao.upsertTracks(
+                tracks.map(TrackEntity::fromTrack)
+            )
+
             dao.insertHomeRowTracks(
                 syncedRows.flatMap { row ->
                     row.tracks.mapIndexed { index, track ->
@@ -135,23 +179,72 @@ class MusicRepository(
             // A network response should still be usable if the local cache is unavailable.
         }
 
-        filterRows(syncedRows, language, enabledSources)
+        filterRows(
+            syncedRows,
+            language,
+            enabledSources
+        )
     }
 
     private fun parseSourceFilter(sourceFilter: String): Set<String> {
         if (sourceFilter.isBlank() || sourceFilter == "ALL") {
-            return setOf("YOUTUBE", "AUDIUS", "JAMENDO")
+            return setOf(
+                "YOUTUBE",
+                "AUDIUS",
+                "JAMENDO"
+            )
         }
-        return sourceFilter.split(',').map { it.trim().uppercase() }.filter { it.isNotBlank() }.toSet()
+
+        return sourceFilter
+            .split(',')
+            .map { it.trim().uppercase() }
+            .filter { it.isNotBlank() }
+            .toSet()
     }
 
-    private fun buildRowsFromCache(entities: List<HomeRowTrackEntity>): List<HomeRow> {
-        val rowOrder = HomeRowCatalog.rows.mapIndexed { index, config -> config.id to index }.toMap()
-        return entities.groupBy { it.rowId }.toList().sortedBy { rowOrder[it.first] ?: Int.MAX_VALUE }.mapNotNull { (rowId, rowEntities) ->
-            val first = rowEntities.minByOrNull { it.sortOrder } ?: return@mapNotNull null
-            val tracks = rowEntities.sortedBy { it.sortOrder }.mapNotNull { dao.getTrackById(it.trackId)?.toTrack() }
-            if (tracks.isEmpty()) null else HomeRow(rowId, first.rowTitle, first.rowSubtitle, tracks, first.languageRegion)
-        }
+    /*
+     * FIX:
+     * SonoraDao.getTrackById() is a suspend function.
+     * Therefore this function must also be suspend.
+     */
+    private suspend fun buildRowsFromCache(
+        entities: List<HomeRowTrackEntity>
+    ): List<HomeRow> {
+        val rowOrder = HomeRowCatalog.rows
+            .mapIndexed { index, config ->
+                config.id to index
+            }
+            .toMap()
+
+        return entities
+            .groupBy { it.rowId }
+            .toList()
+            .sortedBy {
+                rowOrder[it.first] ?: Int.MAX_VALUE
+            }
+            .mapNotNull { (rowId, rowEntities) ->
+                val first = rowEntities.minByOrNull {
+                    it.sortOrder
+                } ?: return@mapNotNull null
+
+                val tracks = rowEntities
+                    .sortedBy { it.sortOrder }
+                    .mapNotNull {
+                        dao.getTrackById(it.trackId)?.toTrack()
+                    }
+
+                if (tracks.isEmpty()) {
+                    null
+                } else {
+                    HomeRow(
+                        rowId,
+                        first.rowTitle,
+                        first.rowSubtitle,
+                        tracks,
+                        first.languageRegion
+                    )
+                }
+            }
     }
 
     private fun filterRows(
@@ -159,151 +252,327 @@ class MusicRepository(
         language: MusicLanguage,
         enabledSources: Set<String>
     ): List<HomeRow> {
-        val languageFiltered = if (language == MusicLanguage.ALL) rows else rows.map { row ->
-            val query = language.title.removeSuffix(" Language").removeSuffix(" & Bollywood").lowercase()
-            row.copy(tracks = row.tracks.filter { track ->
-                track.title.contains(query, true) || track.artistName.contains(query, true) ||
-                    track.albumName.contains(query, true) || track.genre.contains(query, true)
-            })
+        val languageFiltered =
+            if (language == MusicLanguage.ALL) {
+                rows
+            } else {
+                rows.map { row ->
+                    val query = language.title
+                        .removeSuffix(" Language")
+                        .removeSuffix(" & Bollywood")
+                        .lowercase()
+
+                    row.copy(
+                        tracks = row.tracks.filter { track ->
+                            track.title.contains(query, true) ||
+                            track.artistName.contains(query, true) ||
+                            track.albumName.contains(query, true) ||
+                            track.genre.contains(query, true)
+                        }
+                    )
+                }
+            }
+
+        return languageFiltered
+            .map { row ->
+                row.copy(
+                    tracks = row.tracks.filter { track ->
+                        sourceIdFor(track.source) in enabledSources
+                    }
+                )
+            }
+            .filter {
+                it.tracks.isNotEmpty()
+            }
+    }
+
+    private fun sourceIdFor(source: String): String =
+        when (source.lowercase()) {
+            "youtube music", "youtube" -> "YOUTUBE"
+            "audius" -> "AUDIUS"
+            "jamendo", "jamendo (cc)" -> "JAMENDO"
+            else -> source.uppercase()
         }
-        return languageFiltered.map { row ->
-            row.copy(tracks = row.tracks.filter { track -> sourceIdFor(track.source) in enabledSources })
-        }.filter { it.tracks.isNotEmpty() }
-    }
 
-    private fun sourceIdFor(source: String): String = when (source.lowercase()) {
-        "youtube music", "youtube" -> "YOUTUBE"
-        "audius" -> "AUDIUS"
-        "jamendo", "jamendo (cc)" -> "JAMENDO"
-        else -> source.uppercase()
-    }
+    suspend fun getTrendingTracks(): List<Track> =
+        withContext(Dispatchers.IO) {
+            val tracks = mutableListOf<Track>()
 
-    suspend fun getTrendingTracks(): List<Track> = withContext(Dispatchers.IO) {
-        val tracks = mutableListOf<Track>()
-        tracks += audiusSource.getTrending(20)
-        tracks += jamendoSource.getTrending(20)
-        if ("YOUTUBE" in parseSourceFilter("ALL")) tracks += youTubeSource.getTrending(20)
-        syncWithDatabase(tracks.distinctBy { it.id })
-    }
+            tracks += audiusSource.getTrending(20)
+            tracks += jamendoSource.getTrending(20)
 
-    suspend fun getNewReleases(): List<Track> = withContext(Dispatchers.IO) {
-        val tracks = (audiusSource.search("new music", 15) + jamendoSource.search("new music", 15))
-        syncWithDatabase(tracks.distinctBy { it.id })
-    }
+            if ("YOUTUBE" in parseSourceFilter("ALL")) {
+                tracks += youTubeSource.getTrending(20)
+            }
 
-    suspend fun getTracksByGenre(genre: String): List<Track> = withContext(Dispatchers.IO) {
-        val tracks = (audiusSource.search(genre, 15) + jamendoSource.search(genre, 15) + youTubeSource.search(genre, 15))
-        syncWithDatabase(tracks.distinctBy { it.id })
-    }
+            syncWithDatabase(
+                tracks.distinctBy { it.id }
+            )
+        }
 
-    suspend fun search(query: String, sourceFilter: String = "ALL"): List<Track> = withContext(Dispatchers.IO) {
-        if (query.isBlank()) return@withContext emptyList()
+    suspend fun getNewReleases(): List<Track> =
+        withContext(Dispatchers.IO) {
+            val tracks =
+                audiusSource.search("new music", 15) +
+                jamendoSource.search("new music", 15)
+
+            syncWithDatabase(
+                tracks.distinctBy { it.id }
+            )
+        }
+
+    suspend fun getTracksByGenre(
+        genre: String
+    ): List<Track> =
+        withContext(Dispatchers.IO) {
+            val tracks =
+                audiusSource.search(genre, 15) +
+                jamendoSource.search(genre, 15) +
+                youTubeSource.search(genre, 15)
+
+            syncWithDatabase(
+                tracks.distinctBy { it.id }
+            )
+        }
+
+    suspend fun search(
+        query: String,
+        sourceFilter: String = "ALL"
+    ): List<Track> = withContext(Dispatchers.IO) {
+        if (query.isBlank()) {
+            return@withContext emptyList()
+        }
+
         val results = mutableListOf<Track>()
-
         val enabledSources = parseSourceFilter(sourceFilter)
 
         // 1. YouTube Music search
         if ("YOUTUBE" in enabledSources) {
             try {
-                results.addAll(youTubeSource.search(query))
-            } catch (_: Exception) {}
+                results.addAll(
+                    youTubeSource.search(query)
+                )
+            } catch (_: Exception) {
+            }
         }
 
         // 2. Audius search
         if ("AUDIUS" in enabledSources) {
             try {
-                results.addAll(audiusSource.search(query))
-            } catch (_: Exception) {}
+                results.addAll(
+                    audiusSource.search(query)
+                )
+            } catch (_: Exception) {
+            }
         }
 
         // 3. Jamendo search
         if ("JAMENDO" in enabledSources) {
             try {
-                results.addAll(jamendoSource.search(query))
-            } catch (_: Exception) {}
+                results.addAll(
+                    jamendoSource.search(query)
+                )
+            } catch (_: Exception) {
+            }
         }
 
-
-        syncWithDatabase(results.distinctBy { it.id })
+        syncWithDatabase(
+            results.distinctBy { it.id }
+        )
     }
 
-    suspend fun getSyncedLyrics(track: Track): SyncedLyrics = withContext(Dispatchers.IO) {
+    suspend fun getSyncedLyrics(
+        track: Track
+    ): SyncedLyrics = withContext(Dispatchers.IO) {
         try {
-            val cleanTitle = track.title.replace("\\(.*?\\)|\\[.*?\\]".toRegex(), "").trim()
-            val dto = lrclibApi.getLyrics(trackName = cleanTitle, artistName = track.artistName, durationSec = track.durationSeconds)
+            val cleanTitle = track.title
+                .replace(
+                    "\\(.*?\\)|\\[.*?\\]".toRegex(),
+                    ""
+                )
+                .trim()
+
+            val dto = lrclibApi.getLyrics(
+                trackName = cleanTitle,
+                artistName = track.artistName,
+                durationSec = track.durationSeconds
+            )
+
             if (!dto.syncedLyrics.isNullOrBlank()) {
-                val parsed = LrcParser.parse(dto.syncedLyrics, track.id)
-                if (parsed.lines.isNotEmpty()) return@withContext parsed
+                val parsed = LrcParser.parse(
+                    dto.syncedLyrics,
+                    track.id
+                )
+
+                if (parsed.lines.isNotEmpty()) {
+                    return@withContext parsed
+                }
             }
         } catch (_: Exception) {
             try {
-                val searchResults = lrclibApi.searchLyrics(query = "${track.artistName} ${track.title}")
-                val matched = searchResults.firstOrNull { !it.syncedLyrics.isNullOrBlank() }
-                if (matched?.syncedLyrics != null) {
-                    val parsed = LrcParser.parse(matched.syncedLyrics, track.id)
-                    if (parsed.lines.isNotEmpty()) return@withContext parsed
+                val searchResults =
+                    lrclibApi.searchLyrics(
+                        query = "${track.artistName} ${track.title}"
+                    )
+
+                val matched = searchResults.firstOrNull {
+                    !it.syncedLyrics.isNullOrBlank()
                 }
-            } catch (_: Exception) {}
+
+                if (matched?.syncedLyrics != null) {
+                    val parsed = LrcParser.parse(
+                        matched.syncedLyrics,
+                        track.id
+                    )
+
+                    if (parsed.lines.isNotEmpty()) {
+                        return@withContext parsed
+                    }
+                }
+            } catch (_: Exception) {
+            }
         }
 
-        return@withContext SyncedLyrics(trackId = track.id, isSynced = false, lines = emptyList(), rawPlain = "")
+        return@withContext SyncedLyrics(
+            trackId = track.id,
+            isSynced = false,
+            lines = emptyList(),
+            rawPlain = ""
+        )
     }
 
-    suspend fun toggleLiked(track: Track): Boolean = withContext(Dispatchers.IO) {
+    suspend fun toggleLiked(
+        track: Track
+    ): Boolean = withContext(Dispatchers.IO) {
         val newLiked = !track.isLiked
         val existing = dao.getTrackById(track.id)
+
         if (existing == null) {
-            dao.upsertTrack(TrackEntity.fromTrack(track.copy(isLiked = newLiked)))
+            dao.upsertTrack(
+                TrackEntity.fromTrack(
+                    track.copy(
+                        isLiked = newLiked
+                    )
+                )
+            )
         } else {
-            dao.updateLiked(track.id, newLiked)
+            dao.updateLiked(
+                track.id,
+                newLiked
+            )
         }
+
         newLiked
     }
 
-    suspend fun recordPlay(track: Track) = withContext(Dispatchers.IO) {
+    suspend fun recordPlay(
+        track: Track
+    ) = withContext(Dispatchers.IO) {
         val existing = dao.getTrackById(track.id)
+
         if (existing == null) {
-            dao.upsertTrack(TrackEntity.fromTrack(track.copy(playCount = 1, lastPlayedTimestamp = System.currentTimeMillis())))
+            dao.upsertTrack(
+                TrackEntity.fromTrack(
+                    track.copy(
+                        playCount = 1,
+                        lastPlayedTimestamp =
+                            System.currentTimeMillis()
+                    )
+                )
+            )
         } else {
-            dao.recordPlay(track.id, System.currentTimeMillis())
+            dao.recordPlay(
+                track.id,
+                System.currentTimeMillis()
+            )
         }
     }
 
-    suspend fun getSmartMix(): List<Track> = withContext(Dispatchers.IO) {
-        val topHistory = dao.getTopPlayedTracks(10).firstOrNull() ?: emptyList()
-        topHistory.map { it.toTrack() }.distinctBy { it.id }.shuffled()
+    suspend fun getSmartMix(): List<Track> =
+        withContext(Dispatchers.IO) {
+            val topHistory =
+                dao.getTopPlayedTracks(10)
+                    .firstOrNull()
+                    ?: emptyList()
+
+            topHistory
+                .map { it.toTrack() }
+                .distinctBy { it.id }
+                .shuffled()
+        }
+
+    suspend fun createPlaylist(
+        name: String,
+        description: String = ""
+    ): Long = withContext(Dispatchers.IO) {
+        dao.insertPlaylist(
+            PlaylistEntity(
+                name = name,
+                description = description
+            )
+        )
     }
 
-    suspend fun createPlaylist(name: String, description: String = ""): Long = withContext(Dispatchers.IO) {
-        dao.insertPlaylist(PlaylistEntity(name = name, description = description))
-    }
-
-    suspend fun deletePlaylist(playlistId: Long) = withContext(Dispatchers.IO) {
+    suspend fun deletePlaylist(
+        playlistId: Long
+    ) = withContext(Dispatchers.IO) {
         dao.deletePlaylist(playlistId)
     }
 
-    suspend fun addTrackToPlaylist(playlistId: Long, track: Track) = withContext(Dispatchers.IO) {
-        dao.upsertTrack(TrackEntity.fromTrack(track))
-        dao.addTrackToPlaylist(PlaylistTrackCrossRef(playlistId = playlistId, trackId = track.id))
+    suspend fun addTrackToPlaylist(
+        playlistId: Long,
+        track: Track
+    ) = withContext(Dispatchers.IO) {
+        dao.upsertTrack(
+            TrackEntity.fromTrack(track)
+        )
+
+        dao.addTrackToPlaylist(
+            PlaylistTrackCrossRef(
+                playlistId = playlistId,
+                trackId = track.id
+            )
+        )
     }
 
-    suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: String) = withContext(Dispatchers.IO) {
-        dao.removeTrackFromPlaylist(playlistId, trackId)
+    suspend fun removeTrackFromPlaylist(
+        playlistId: Long,
+        trackId: String
+    ) = withContext(Dispatchers.IO) {
+        dao.removeTrackFromPlaylist(
+            playlistId,
+            trackId
+        )
     }
 
-    fun getTracksForPlaylist(playlistId: Long): Flow<List<Track>> {
-        return dao.getTracksForPlaylist(playlistId).map { list -> list.map { it.toTrack() } }
+    fun getTracksForPlaylist(
+        playlistId: Long
+    ): Flow<List<Track>> {
+        return dao.getTracksForPlaylist(
+            playlistId
+        ).map { list ->
+            list.map { it.toTrack() }
+        }
     }
 
-    suspend fun downloadTrack(track: Track) = downloader.downloadTrack(track)
+    suspend fun downloadTrack(
+        track: Track
+    ) = downloader.downloadTrack(track)
 
-    suspend fun removeDownload(track: Track) = downloader.removeDownload(track)
+    suspend fun removeDownload(
+        track: Track
+    ) = downloader.removeDownload(track)
 
-    fun getDownloadStatus() = downloader.downloadStatus
+    fun getDownloadStatus() =
+        downloader.downloadStatus
 
-    private suspend fun syncWithDatabase(tracks: List<Track>): List<Track> {
+    private suspend fun syncWithDatabase(
+        tracks: List<Track>
+    ): List<Track> {
         return tracks.map { track ->
-            val entity = dao.getTrackById(track.id)
+            val entity =
+                dao.getTrackById(track.id)
+
             if (entity != null) {
                 track.copy(
                     isLiked = entity.isLiked,
