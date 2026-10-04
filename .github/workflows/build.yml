@@ -1,170 +1,79 @@
-name: Build LastWave APK
+name: APK Only
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
       - master
 
-  pull_request:
-    branches:
-      - main
-      - master
-
-  workflow_dispatch:
-
 permissions:
   contents: read
 
-concurrency:
-  group: lastwave-build-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  build:
-    name: Build Android APK
+  apk:
+    name: Build APK Only
     runs-on: ubuntu-latest
 
     steps:
-
-      # --------------------------------------------------
-      # 1. Checkout source
-      # --------------------------------------------------
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # 2. Java 17
-      # --------------------------------------------------
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Java 17
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
-      # --------------------------------------------------
-      # 3. Install Gradle directly
-      #    This does NOT require gradlew to exist
-      # --------------------------------------------------
-      - name: Set up Gradle 9.3.1
-        uses: gradle/actions/setup-gradle@v4
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '9.3.1'
+          cache-provider: basic
 
-      # --------------------------------------------------
-      # 4. Check Java + Gradle
-      # --------------------------------------------------
-      - name: Check Java
-        run: |
-          java -version
-
-      - name: Check Gradle
-        run: |
-          gradle --version
-
-      # --------------------------------------------------
-      # 5. Verify project files
-      # --------------------------------------------------
-      - name: Verify project
-        shell: bash
-        run: |
-          echo "Current directory:"
-          pwd
-
-          echo ""
-          echo "Project files:"
-          ls -la
-
-          echo ""
-          echo "Gradle files:"
-          find . -maxdepth 3 \
-            \( -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-            -o -name "build.gradle" \
-            -o -name "build.gradle.kts" \) \
-            -print
-
-      # --------------------------------------------------
-      # 6. Generate Gradle Wrapper automatically
-      # --------------------------------------------------
-      - name: Generate Gradle Wrapper
+      - name: Generate wrapper
         run: |
           gradle wrapper \
             --gradle-version 9.3.1 \
             --distribution-type bin
 
-      # --------------------------------------------------
-      # 7. Make wrapper executable
-      # --------------------------------------------------
-      - name: Make Gradle executable
-        run: |
-          chmod +x ./gradlew
+      - name: Make wrapper executable
+        run: chmod +x ./gradlew
 
-      # --------------------------------------------------
-      # 8. Verify generated wrapper
-      # --------------------------------------------------
-      - name: Verify Gradle Wrapper
-        run: |
-          ./gradlew --version
-
-      # --------------------------------------------------
-      # 9. Clean project
-      # --------------------------------------------------
-      - name: Clean
-        run: |
-          ./gradlew clean --no-daemon
-
-      # --------------------------------------------------
-      # 10. Compile Kotlin / Android
-      # --------------------------------------------------
-      - name: Compile Debug
-        run: |
-          ./gradlew compileDebugKotlin --no-daemon --stacktrace
-
-      # --------------------------------------------------
-      # 11. Build Debug APK
-      # --------------------------------------------------
+      # No tests.
+      # No unit tests.
+      # No lint.
+      # No release signing.
+      # Only APK compilation.
       - name: Build Debug APK
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew :app:assembleDebug \
+            --no-daemon \
+            --stacktrace \
+            --no-configuration-cache
 
-      # --------------------------------------------------
-      # 12. Find APK
-      # --------------------------------------------------
-      - name: Find APK
-        shell: bash
+      - name: Locate APK
         run: |
-          echo "APK files:"
-          find . -type f -name "*.apk" -print
+          find app/build/outputs/apk \
+            -type f \
+            -name "*.apk" \
+            -print
 
-      # --------------------------------------------------
-      # 13. Rename APK
-      # --------------------------------------------------
-      - name: Prepare APK
-        shell: bash
-        run: |
-          mkdir -p build-artifacts
-
-          APK=$(find app/build/outputs/apk/debug -type f -name "*.apk" | head -n 1)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: Debug APK was not generated."
-            exit 1
-          fi
-
-          cp "$APK" build-artifacts/LastWave-debug.apk
-
-          echo "APK prepared:"
-          ls -lh build-artifacts/LastWave-debug.apk
-
-      # --------------------------------------------------
-      # 14. Upload APK
-      # --------------------------------------------------
-      - name: Upload LastWave APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LastWave-debug-apk
-          path: build-artifacts/LastWave-debug.apk
+          name: LastWave-debug-APK
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
