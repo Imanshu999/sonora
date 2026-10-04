@@ -1,4 +1,4 @@
-name: Build Signed Release APK
+name: Build Release APK
 
 on:
   push:
@@ -20,21 +20,16 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Accept Android SDK Licenses
-      run: |
-        yes | sdkmanager --licenses || true
-
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Release APK (Unsigned or Default)
+    - name: Build Release APK
       run: ./gradlew assembleRelease
+      env:
+        ANDROID_HOME: /usr/local/lib/android/sdk
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: app-release-apk
-        path: app/build/outputs/apk/release/app-release-unsigned.apk
+        path: app/build/outputs/apk/release/
