@@ -38,8 +38,14 @@ class DataStoreManager(private val context: Context) {
         }
     }
 
-    val preferredSourceFlow: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_PREFERRED_SOURCE] ?: "ALL"
+    val preferredSourcesFlow: Flow<Set<String>> = context.dataStore.data.map { prefs ->
+        val raw = prefs[KEY_PREFERRED_SOURCE] ?: "ALL"
+        if (raw == "ALL") setOf("YOUTUBE", "AUDIUS", "JAMENDO")
+        else raw.split(',').map { it.trim() }.filter { it.isNotBlank() }.toSet()
+    }
+
+    val preferredSourceFlow: Flow<String> = preferredSourcesFlow.map { sources ->
+        if (sources.size == 3) "ALL" else sources.sorted().joinToString(",")
     }
 
     val themeFlow: Flow<SonoraTheme> = context.dataStore.data.map { prefs ->
@@ -124,8 +130,17 @@ class DataStoreManager(private val context: Context) {
     }
 
     suspend fun setPreferredSource(source: String) {
+        val sources = when (source) {
+            "ALL" -> setOf("YOUTUBE", "AUDIUS", "JAMENDO")
+            else -> setOf(source)
+        }
+        setPreferredSources(sources)
+    }
+
+    suspend fun setPreferredSources(sources: Set<String>) {
+        val normalized = sources.intersect(setOf("YOUTUBE", "AUDIUS", "JAMENDO"))
         context.dataStore.edit { prefs ->
-            prefs[KEY_PREFERRED_SOURCE] = source
+            prefs[KEY_PREFERRED_SOURCE] = if (normalized.size == 3) "ALL" else normalized.sorted().joinToString(",")
         }
     }
 }
