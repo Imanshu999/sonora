@@ -422,7 +422,7 @@ fun SettingsScreen(
     // Music Source Engine Dialog
     if (showSourceDialog) {
         val sourceOptions = listOf(
-            "YOUTUBE" to "YouTube Music (existing catalog/data layer)",
+            "YOUTUBE" to "YouTube Music (real extractor required)",
             "AUDIUS" to "Audius decentralized network",
             "JAMENDO" to "Jamendo Creative Commons catalog"
         )
