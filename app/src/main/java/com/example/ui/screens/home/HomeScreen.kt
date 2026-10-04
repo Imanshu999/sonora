@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -78,12 +79,17 @@ fun HomeScreen(
         else -> "Good evening"
     }
 
-    LazyColumn(
+    PullToRefreshBox(
+        isRefreshing = homeState.isRefreshing,
+        onRefresh = { viewModel.refreshHome() },
         modifier = modifier
             .fillMaxSize()
-            .testTag("home_screen"),
-        contentPadding = PaddingValues(bottom = 200.dp)
+            .testTag("home_screen")
     ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 200.dp)
+        ) {
         // Top Header
         item {
             Column(
@@ -245,12 +251,13 @@ fun HomeScreen(
         }
 
         // Configurable Dynamic Home Rows
-        items(homeState.homeRows) { row ->
-            HomeRowSection(
-                row = row,
-                playbackState = playbackState,
-                onTrackClick = { track -> viewModel.playTrack(track, row.tracks) }
-            )
+            items(homeState.homeRows) { row ->
+                HomeRowSection(
+                    row = row,
+                    playbackState = playbackState,
+                    onTrackClick = { track -> viewModel.playTrack(track, row.tracks) }
+                )
+            }
         }
     }
 }
