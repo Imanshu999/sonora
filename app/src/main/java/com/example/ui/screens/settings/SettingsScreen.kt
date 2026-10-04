@@ -75,6 +75,7 @@ fun SettingsScreen(
     val audioQuality by viewModel.audioQuality.collectAsState()
     val selectedLanguage by viewModel.selectedLanguage.collectAsState()
     val preferredSource by viewModel.preferredSource.collectAsState()
+    val preferredSources by viewModel.preferredSources.collectAsState()
 
     var showThemeDialog by remember { mutableStateOf(false) }
     var showQualityDialog by remember { mutableStateOf(false) }
@@ -153,11 +154,17 @@ fun SettingsScreen(
             SettingsClickableItem(
                 icon = Icons.Default.HighQuality,
                 title = "Music Source Engine",
-                subtitle = when (preferredSource) {
-                    "YOUTUBE" -> "YouTube Music (InnerTube)"
-                    "AUDIUS" -> "Audius Decentralized Network"
-                    "JAMENDO" -> "Jamendo (Creative Commons)"
-                    else -> "All Sources (Unified Discovery)"
+                subtitle = when {
+                    preferredSources.size == 3 -> "All Sources (Unified Discovery)"
+                    preferredSources.isEmpty() -> "Select at least one source"
+                    else -> preferredSources.sorted().joinToString(" + ") { key ->
+                        when (key) {
+                            "YOUTUBE" -> "YouTube Music"
+                            "AUDIUS" -> "Audius"
+                            "JAMENDO" -> "Jamendo"
+                            else -> key
+                        }
+                    }
                 },
                 onClick = { showSourceDialog = true }
             )
@@ -415,42 +422,29 @@ fun SettingsScreen(
     // Music Source Engine Dialog
     if (showSourceDialog) {
         val sourceOptions = listOf(
-            Pair("ALL", "All Sources (Unified Discovery)"),
-            Pair("YOUTUBE", "YouTube Music (InnerTube)"),
-            Pair("AUDIUS", "Audius Decentralized Network"),
-            Pair("JAMENDO", "Jamendo (Creative Commons)")
+            "YOUTUBE" to "YouTube Music (existing catalog/data layer)",
+            "AUDIUS" to "Audius decentralized network",
+            "JAMENDO" to "Jamendo Creative Commons catalog"
         )
         AlertDialog(
             onDismissRequest = { showSourceDialog = false },
-            title = { Text("Music Source Engine", fontWeight = FontWeight.Bold) },
+            title = { Text("Music Sources", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
+                    Text(
+                        text = "Choose which sources can contribute to Home, Discover, and search.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                     sourceOptions.forEach { (key, label) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setPreferredSource(key)
-                                    showSourceDialog = false
-                                }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = preferredSource == key,
-                                onClick = {
-                                    viewModel.setPreferredSource(key)
-                                    showSourceDialog = false
-                                },
-                                colors = RadioButtonDefaults.colors(selectedColor = ElectricPurple)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (preferredSource == key) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
+                        SettingsSwitchItem(
+                            icon = Icons.Default.HighQuality,
+                            title = label,
+                            subtitle = if (key in preferredSources) "Enabled" else "Disabled",
+                            checked = key in preferredSources,
+                            onCheckedChange = { viewModel.setSourceEnabled(key, it) }
+                        )
                     }
                 }
             },
@@ -461,6 +455,7 @@ fun SettingsScreen(
             }
         )
     }
+
 }
 
 @Composable
