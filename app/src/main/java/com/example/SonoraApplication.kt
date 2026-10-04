@@ -11,6 +11,9 @@ import com.example.data.repository.MusicRepository
 import com.example.playback.SonoraPlayer
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -65,16 +68,22 @@ class SonoraApplication : Application() {
             .addLast(KotlinJsonAdapterFactory())
             .build()
 
+        val networkJson = Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
+        val jsonConverter = networkJson.asConverterFactory("application/json".toMediaType())
+
         val jamendoRetrofit = Retrofit.Builder()
             .baseUrl("https://api.jamendo.com/")
             .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .addConverterFactory(jsonConverter)
             .build()
 
         val audiusRetrofit = Retrofit.Builder()
             .baseUrl("https://discoveryprovider.audius.co/")
             .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .addConverterFactory(jsonConverter)
             .build()
 
         val lrclibRetrofit = Retrofit.Builder()
@@ -91,7 +100,16 @@ class SonoraApplication : Application() {
         dataStoreManager = DataStoreManager(this)
 
         downloader = OfflineDownloader(this, okHttpClient, database.sonoraDao())
-        repository = MusicRepository(jamendoApi, audiusApi, lrclibApi, database.sonoraDao(), downloader)
+        repository = MusicRepository(
+            jamendoApi = jamendoApi,
+            audiusApi = audiusApi,
+            lrclibApi = lrclibApi,
+            dao = database.sonoraDao(),
+            downloader = downloader,
+            jamendoClientId = BuildConfig.JAMENDO_CLIENT_ID
+                .takeUnless { it.isBlank() || it == "MY_JAMENDO_CLIENT_ID" }
+                ?: "c4bfa6c8"
+        )
 
         player = SonoraPlayer(this) { finishedTrack ->
             applicationScope.launch {
