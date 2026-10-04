@@ -19,6 +19,7 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '17'
+        cache: 'gradle'
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
@@ -28,7 +29,9 @@ jobs:
         keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug, OU=Development, O=Android, L=Unknown, ST=Unknown, C=US"
 
     - name: Build Debug APK
-      run: ./gradlew clean assembleDebug --no-daemon
+      run: |
+        ./gradlew clean
+        ./gradlew assembleDebug --no-daemon --refresh-dependencies
       env:
         ANDROID_HOME: /usr/local/lib/android/sdk
 
@@ -37,4 +40,3 @@ jobs:
       with:
         name: app-debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
-
