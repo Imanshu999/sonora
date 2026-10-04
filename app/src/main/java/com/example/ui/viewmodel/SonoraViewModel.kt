@@ -42,7 +42,7 @@ data class SearchUiState(
     val selectedSource: String = "ALL", // "ALL", "YOUTUBE", "AUDIUS", "JAMENDO"
     val results: List<Track> = emptyList(),
     val isSearching: Boolean = false,
-    val recentSearches: List<String> = listOf("Arijit Singh", "Diljit Dosanjh", "Tauba Tauba", "Brown Munde", "Synthwave", "Chill Lo-Fi")
+    val recentSearches: List<String> = emptyList()
 )
 
 class SonoraViewModel(
