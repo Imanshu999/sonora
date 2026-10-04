@@ -39,7 +39,7 @@ data class HomeUiState(
 
 data class SearchUiState(
     val query: String = "",
-    val selectedSource: String = "ALL", // "ALL", "YOUTUBE", "AUDIUS", "JAMENDO"
+    val selectedSource: String = "ALL", // "ALL", "YOUTUBE", "AUDIUS", "JAMENDO", "FREE_TO_USE"
     val results: List<Track> = emptyList(),
     val isSearching: Boolean = false,
     val recentSearches: List<String> = emptyList()
@@ -66,7 +66,7 @@ class SonoraViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MusicLanguage.ALL)
 
     val preferredSources: StateFlow<Set<String>> = dataStoreManager.preferredSourcesFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), setOf("YOUTUBE", "AUDIUS", "JAMENDO"))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), setOf("YOUTUBE", "AUDIUS", "JAMENDO", "FREE_TO_USE"))
 
     val preferredSource: StateFlow<String> = dataStoreManager.preferredSourceFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ALL")
