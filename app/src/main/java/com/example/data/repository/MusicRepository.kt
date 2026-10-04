@@ -221,11 +221,6 @@ class MusicRepository(
             .toSet()
     }
 
-    /*
-     * FIX:
-     * SonoraDao.getTrackById() is a suspend function.
-     * Therefore this function must also be suspend.
-     */
     private suspend fun buildRowsFromCache(
         entities: List<HomeRowTrackEntity>
     ): List<HomeRow> {
@@ -368,7 +363,6 @@ class MusicRepository(
         val results = mutableListOf<Track>()
         val enabledSources = parseSourceFilter(sourceFilter)
 
-        // 1. YouTube Music search
         if ("YOUTUBE" in enabledSources) {
             try {
                 results.addAll(
@@ -378,7 +372,6 @@ class MusicRepository(
             }
         }
 
-        // 2. Audius search
         if ("AUDIUS" in enabledSources) {
             try {
                 results.addAll(
@@ -388,7 +381,6 @@ class MusicRepository(
             }
         }
 
-        // 3. Jamendo search
         if ("JAMENDO" in enabledSources) {
             try {
                 results.addAll(
@@ -398,7 +390,6 @@ class MusicRepository(
             }
         }
 
-        // 4. Free To Use search
         if ("FREE_TO_USE" in enabledSources) {
             try {
                 results.addAll(
@@ -601,19 +592,18 @@ class MusicRepository(
     private suspend fun syncWithDatabase(
         tracks: List<Track>
     ): List<Track> {
-        return tracks.map { track ->
-            val entity =
-                dao.getTrackById(track.id)
+        return tracks.map { trackItem ->
+            val entity = dao.getTrackById(trackItem.id)
 
             if (entity != null) {
-                track.copy(
+                trackItem.copy(
                     isLiked = entity.isLiked,
                     localUri = entity.localUri,
                     downloadedAt = entity.downloadedAt,
                     playCount = entity.playCount
                 )
             } else {
-                track
+                trackItem
             }
         }
     }
