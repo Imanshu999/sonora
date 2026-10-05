@@ -33,12 +33,16 @@ data class AudiusArtworkDto(
 interface AudiusApi {
     @GET("v1/tracks/trending")
     suspend fun getTrending(
-        @Query("app_name") appName: String = "SONORA_STREAM"
+        @Query("app_name") appName: String = "SONORA_STREAM",
+        @Query("limit") limit: Int = 100,
+        @Query("offset") offset: Int = 0
     ): AudiusTracksResponse
 
     @GET("v1/tracks/search")
     suspend fun searchTracks(
         @Query("query") query: String,
-        @Query("app_name") appName: String = "SONORA_STREAM"
+        @Query("app_name") appName: String = "SONORA_STREAM",
+        @Query("limit") limit: Int = 100,
+        @Query("offset") offset: Int = 0
     ): AudiusTracksResponse
 }
