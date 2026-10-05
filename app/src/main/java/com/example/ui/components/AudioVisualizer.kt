@@ -23,71 +23,51 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+/**
+ * Lightweight 12-bar flowing visualizer. It deliberately uses only Compose
+ * animations so it stays smooth on low-end devices and does not require
+ * microphone/audio-recording permissions.
+ */
 @Composable
 fun AudioVisualizer(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
-    barCount: Int = 4,
+    barCount: Int = 12,
     color: Color = MaterialTheme.colorScheme.primary,
     maxHeight: Dp = 18.dp,
-    barWidth: Dp = 3.dp
+    barWidth: Dp = 2.5.dp
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "visualizer_anim")
-
-    val h1 by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = if (isPlaying) 1.0f else 0.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(450, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "h1"
-    )
-
-    val h2 by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = if (isPlaying) 0.85f else 0.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(380, delayMillis = 100, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "h2"
-    )
-
-    val h3 by infiniteTransition.animateFloat(
-        initialValue = 0.15f,
-        targetValue = if (isPlaying) 0.95f else 0.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(520, delayMillis = 60, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "h3"
-    )
-
-    val h4 by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = if (isPlaying) 0.75f else 0.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(410, delayMillis = 140, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "h4"
-    )
-
-    val heights = listOf(h1, h2, h3, h4)
+    val transition = rememberInfiniteTransition(label = "visualizer_flow")
+    val count = barCount.coerceIn(4, 15)
+    val heights = List(count) { index ->
+        val phase = (index * 37) % 170
+        val low = 0.16f + (index % 3) * 0.04f
+        val high = if (isPlaying) 0.55f + ((index * 17) % 45) / 100f else 0.22f
+        transition.animateFloat(
+            initialValue = low,
+            targetValue = high.coerceAtMost(1f),
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = 360 + (index % 5) * 85,
+                    delayMillis = phase,
+                    easing = FastOutSlowInEasing
+                ),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar_$index"
+        ).value
+    }
 
     Row(
         modifier = modifier.height(maxHeight),
-        horizontalArrangement = Arrangement.spacedBy(2.5.dp),
+        horizontalArrangement = Arrangement.spacedBy(1.5.dp),
         verticalAlignment = Alignment.Bottom
     ) {
-        for (i in 0 until barCount) {
-            val factor = heights[i % heights.size]
-            val currentHeight = maxHeight * factor
+        heights.forEach { factor ->
             Box(
                 modifier = Modifier
                     .width(barWidth)
-                    .height(currentHeight.coerceAtLeast(3.dp))
+                    .height((maxHeight * factor).coerceAtLeast(2.dp))
                     .clip(RoundedCornerShape(2.dp))
                     .background(color)
             )
