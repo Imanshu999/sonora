@@ -75,6 +75,7 @@ fun SonoraTheme(
 ) {
     val systemInDark = isSystemInDarkTheme()
     val isDark = when (themeSetting) {
+        SonoraTheme.LIGHT -> false
         SonoraTheme.SYSTEM -> systemInDark
         SonoraTheme.DARK, SonoraTheme.AMOLED -> true
     }
