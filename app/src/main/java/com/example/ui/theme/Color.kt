@@ -3,8 +3,8 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Brand accents
-val ElectricPurple = Color(0xFFFFFFFF)
-val NeonViolet = Color(0xFFE5E7EB)
+val ElectricPurple = Color(0xFF8B5CF6)
+val NeonViolet = Color(0xFFA78BFA)
 val VividCyan = Color(0xFF06B6D4)
 val CyanAccent = Color(0xFF22D3EE)
 val AmberGlow = Color(0xFFF59E0B)
@@ -26,12 +26,12 @@ val AmoledBorder = Color(0xFF222222)
 
 // Text & Content
 val TextPrimary = Color(0xFFF8FAFC)
-val TextSecondary = Color(0xFF94A3B8)
-val TextTertiary = Color(0xFF64748B)
+val TextSecondary = Color(0xFFCBD5E1)
+val TextTertiary = Color(0xFF94A3B8)
 
 // Light Theme
-val LightPrimary = Color(0xFF7E22CE)
+val LightPrimary = Color(0xFF6D28D9)
 val LightBackground = Color(0xFFF8FAFC)
 val LightSurface = Color(0xFFFFFFFF)
 val LightSurfaceVariant = Color(0xFFF1F5F9)
-val LightBorder = Color(0xFFE2E8F0)
+val LightBorder = Color(0xFFCBD5E1)
