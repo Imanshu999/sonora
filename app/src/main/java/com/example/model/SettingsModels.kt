@@ -7,6 +7,7 @@ enum class AudioQuality(val title: String, val subtitle: String) {
 }
 
 enum class SonoraTheme(val title: String) {
+    LIGHT("Light / White"),
     SYSTEM("Follow System"),
     DARK("Deep Midnight"),
     AMOLED("Pure Black (AMOLED)")
