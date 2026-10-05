@@ -53,3 +53,8 @@ The project requests `POST_NOTIFICATIONS` on Android 13+ so the system can show 
 
 ### Catalog scope
 The app aggregates the catalogs exposed by its configured providers. It cannot legally provide every commercial song in the world or every Indian release unless a provider/license supplies those recordings. Search is paginated across the configured providers so it can return substantially more matching results than the previous 10-15 item behavior.
+
+
+## Music catalog / licensing
+
+Sonora aggregates sources that provide playable streams to the app. It does not bundle or scrape a complete commercial catalog. Spotify metadata APIs can expose catalog metadata, but Spotify explicitly prohibits facilitating downloads/stream-ripping; full commercial playback requires the provider's supported playback/authorization path and applicable rights.
