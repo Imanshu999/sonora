@@ -1,60 +1,341 @@
+# 🎵 Sonora
+
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+
+<img src="https://raw.githubusercontent.com/Imanshu999/sonora/main/docs/app-icon.svg" width="128" alt="Sonora app icon"/>
+
+# Sonora
+
+**A modern native Android music player built for discovery, playback, playlists and offline listening.**
+
+![Version](https://img.shields.io/badge/version-2.0-a78bfa?style=for-the-badge)
+![Android](https://img.shields.io/badge/Android-API%2024%2B-3DDC84?style=for-the-badge&logo=android)
+![Kotlin](https://img.shields.io/badge/Kotlin-Native-7F52FF?style=for-the-badge&logo=kotlin)
+![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=for-the-badge)
+
 </div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## 📱 About Sonora
 
-View your app in AI Studio: https://ai.studio/apps/fb3f64d8-ecae-4ffd-b723-77e5f5420236
+**Sonora** is a native Android music application focused on a clean, immersive listening experience.
 
-## Run Locally
+It combines a modern **Jetpack Compose + Material 3** interface with **AndroidX Media3 / ExoPlayer**, local library storage, provider-based music discovery, playlists, downloads, lyrics, smart mixes and background playback.
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+| Detail | Value |
+|---|---|
+| App | **Sonora** |
+| Version | **2.0** |
+| Platform | Android |
+| Minimum Android | API 24 |
+| Compile / Target SDK | 36 |
+| Language | Kotlin |
+| UI | Jetpack Compose + Material 3 |
+| Playback | AndroidX Media3 / ExoPlayer |
+| Background Audio | MediaSessionService |
 
+> Sonora is a music player and catalog client. It does not bundle a complete commercial music catalog. Music availability depends on the configured provider and applicable rights.
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
-7. If you have already published your app in AI Studio, please [request upload key reset](https://support.google.com/googleplay/android-developer/answer/9842756#zippy=%2Crequest-an-upload-key-reset) in Google Play Console.
+---
 
-## GitHub Actions build
+## 📸 App Screens
 
-The repository CI is pinned to JDK 17, Android SDK 36, AGP 9.1.1 and Gradle 9.3.1.
-GitHub Actions installs Gradle 9.3.1 directly with `gradle/actions/setup-gradle`, so the CI build does not depend on a checked-in Gradle wrapper JAR.
+<table>
+<tr>
+<td><img src="https://raw.githubusercontent.com/Imanshu999/sonora/main/docs/screenshots/home.svg" width="260" alt="Sonora Home"/></td>
+<td><img src="https://raw.githubusercontent.com/Imanshu999/sonora/main/docs/screenshots/player.svg" width="260" alt="Sonora Player"/></td>
+<td><img src="https://raw.githubusercontent.com/Imanshu999/sonora/main/docs/screenshots/search.svg" width="260" alt="Sonora Search"/></td>
+</tr>
+<tr>
+<td align="center"><b>Home</b></td>
+<td align="center"><b>Now Playing</b></td>
+<td align="center"><b>Search</b></td>
+</tr>
+<tr>
+<td><img src="https://raw.githubusercontent.com/Imanshu999/sonora/main/docs/screenshots/library.svg" width="260" alt="Sonora Library"/></td>
+<td><img src="https://raw.githubusercontent.com/Imanshu999/sonora/main/docs/screenshots/settings.svg" width="260" alt="Sonora Settings"/></td>
+<td><img src="https://raw.githubusercontent.com/Imanshu999/sonora/main/docs/screenshots/queue.svg" width="260" alt="Sonora Queue"/></td>
+</tr>
+<tr>
+<td align="center"><b>Library</b></td>
+<td align="center"><b>Settings</b></td>
+<td align="center"><b>Queue</b></td>
+</tr>
+</table>
 
-For a standard local Gradle Wrapper, install Gradle 9.3.1 once and run:
+> These are repository UI preview assets used for project documentation.
 
-```bash
-gradle wrapper --gradle-version 9.3.1
-```
+---
 
-This creates the official `gradle/wrapper/gradle-wrapper.jar` and replaces the bootstrap launchers with the standard wrapper files.
+## ✨ Features
 
+### 🎧 Music Playback
+- Play / pause
+- Seek
+- Next / previous
+- Queue management
+- Queue reordering
+- Shuffle
+- Repeat
+- Crossfade
+- Sleep timer
+- Playback progress
+- Current track metadata
+- Album artwork
+- Background playback
+- Android MediaSession integration
 
-## Background playback and Free To Use streaming
+### 🔎 Search & Discovery
+- Multi-source music discovery
+- Provider-based search
+- Recent searches
+- Genre discovery
+- Smart Mix
+- Dedicated **🔥 Phonk** category
+- Source filtering
+- Artist / album / track discovery
 
-Sonora now uses AndroidX Media3 `MediaSessionService` for background playback. While a track is playing, the service keeps the audio session alive when the app is backgrounded and Media3 publishes the standard Android media notification/lock-screen controls from the current `MediaItem` metadata.
+### 📚 Personal Library
+- Liked songs
+- Listening history
+- Playlists
+- Downloaded tracks
+- Offline library
+- Queue management
+- Local track status
+- Playlist management
 
-The app also includes a native Retrofit integration for the public Free To Use API:
+### ⚙️ Settings & Personalization
+- Dark-first Material 3 interface
+- Theme mode
+- Dynamic colors
+- Streaming quality controls
+- Crossfade settings
+- Equalizer presets
+- Loudness normalization
+- Language / regional focus
+- Audio cache
+- Artwork cache
+- Bluetooth audio support
+
+---
+
+## 🎵 Background Playback
+
+Sonora uses a real AndroidX Media3:
+
+`MediaSessionService`
+
+This allows music playback to continue while the application is backgrounded and lets Android expose the active media session through its system media controls.
+
+The active `MediaItem` contains:
+
+- Track title
+- Artist
+- Album
+- Artwork
+- Playback state
+
+This is implemented as native Android media playback rather than a web-based audio workaround.
+
+---
+
+## 🌐 Music Sources
+
+Sonora is designed around provider catalogs.
+
+Current project integrations/configuration include:
+
+- **YouTube**
+- **Audius**
+- **Jamendo**
+- **Free To Use**
+
+### Free To Use
+
+The project contains a native Retrofit integration for the public Free To Use API:
+
 `https://api.freetouse.com/v3/`
 
-Supported endpoints include:
-- `/music/tracks/all`
-- `/music/tracks/search`
-- `/music/tracks/{id}`
+Example endpoints:
 
-No API key is required. Only public/free catalog tracks with an available MP3 URL are exposed by the Free To Use source. Please review the provider's current license terms before distributing or monetizing the app.
+`/music/tracks/all`  
+`/music/tracks/search`  
+`/music/tracks/{id}`
 
-The project requests `POST_NOTIFICATIONS` on Android 13+ so the system can show media notifications. Android's media notification is generated by Media3 from the active `MediaSession`, including title, artist, album art, and transport controls.
+Provider availability, API behavior and licensing terms can change. Always verify the current provider terms before distribution or monetization.
 
-### Catalog scope
-The app aggregates the catalogs exposed by its configured providers. It cannot legally provide every commercial song in the world or every Indian release unless a provider/license supplies those recordings. Search is paginated across the configured providers so it can return substantially more matching results than the previous 10-15 item behavior.
+**Sonora does not claim to provide every commercial song in the world.**
 
+---
 
-## Music catalog / licensing
+## 🧩 Technology Stack
 
-Sonora aggregates sources that provide playable streams to the app. It does not bundle or scrape a complete commercial catalog. Spotify metadata APIs can expose catalog metadata, but Spotify explicitly prohibits facilitating downloads/stream-ripping; full commercial playback requires the provider's supported playback/authorization path and applicable rights.
+| Category | Technology |
+|---|---|
+| Programming | **Kotlin** |
+| UI | **Jetpack Compose** |
+| Design | **Material 3** |
+| Playback | **AndroidX Media3 / ExoPlayer** |
+| Background audio | **MediaSessionService** |
+| Database | **Room** |
+| Preferences | **DataStore** |
+| Networking | **Retrofit + OkHttp** |
+| Serialization | Kotlin Serialization / Moshi |
+| Images | **Coil** |
+| AI | Firebase AI SDK integration |
+| Build | Gradle + Android Gradle Plugin |
+| CI | GitHub Actions |
+| Java | JDK 17 |
+
+---
+
+## 🏗️ Architecture
+
+Sonora follows a modern Android architecture based around:
+
+```text
+Compose UI
+   ↓
+ViewModel / State
+   ↓
+Repository / Domain logic
+   ↓
+Room + DataStore + Network APIs
+   ↓
+Media3 / ExoPlayer
+   ↓
+MediaSessionService
+   ↓
+Android system playback
+```
+
+The application is designed so playback, local data, network sources and UI state remain separated instead of putting the entire application inside one screen.
+
+---
+
+## 🛠️ Build Locally
+
+### Requirements
+
+- Android Studio
+- JDK 17
+- Android SDK 36
+- Android device or emulator
+- Environment values required by selected integrations
+
+### Steps
+
+```bash
+git clone https://github.com/Imanshu999/sonora.git
+cd sonora
+```
+
+Open the project in **Android Studio**, allow Gradle synchronization to finish, configure any required environment values, then build the `app` module.
+
+### GitHub Actions
+
+The repository contains a CI workflow under:
+
+`.github/workflows/build.yml`
+
+The workflow builds the Android application and publishes build artifacts such as the debug APK and source ZIP.
+
+---
+
+## 📂 Project Structure
+
+```text
+sonora/
+├── app/
+│   └── src/main/
+│       ├── java/                 # Kotlin application source
+│       └── res/                  # Android resources
+│
+├── docs/
+│   ├── app-icon.svg              # README app icon
+│   └── screenshots/              # Six UI previews
+│
+├── .github/workflows/
+│   └── build.yml                 # Android CI / APK build
+│
+├── CREDITS.md
+├── LICENSE
+├── SONORA_UPGRADES.md
+├── metadata.json
+└── README.md
+```
+
+---
+
+## 🔐 Android Permissions
+
+Depending on Android version and enabled features, Sonora uses permissions for:
+
+- Internet access
+- Network state
+- Foreground media playback
+- Notifications
+- Bluetooth audio
+- Vibration
+- Wake lock
+
+Permissions are used for the corresponding Android functionality and do not grant rights to third-party music catalogs.
+
+---
+
+## 🧪 Project Status
+
+**Sonora 2.0** is an actively evolving Android music project.
+
+The current codebase includes:
+
+- Native Media3 background playback
+- Multi-source discovery
+- Search
+- Playlists
+- Favorites
+- Listening history
+- Downloads / offline support
+- Lyrics
+- Smart Mix
+- Theme and audio settings
+- Bluetooth-related support
+- Dedicated Phonk discovery
+- GitHub Actions APK builds
+
+---
+
+## 📜 Important Licensing Note
+
+Sonora is software for interacting with supported music providers.
+
+It does **not** include or redistribute a complete commercial music catalog.
+
+Users and distributors are responsible for complying with:
+
+- Provider API terms
+- Music licensing requirements
+- Copyright law
+- Regional availability restrictions
+
+Do not use Sonora to download, stream or redistribute content when you do not have the required rights.
+
+---
+
+## 📄 License & Credits
+
+See [LICENSE](LICENSE) for project licensing information.
+
+See [CREDITS.md](CREDITS.md) for third-party libraries, APIs, providers and attribution.
+
+---
+
+<div align="center">
+
+### 🎵 Sonora 2.0
+
+**Music, without the noise.**
+
+</div>
