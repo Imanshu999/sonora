@@ -1,4 +1,4 @@
-name: Build Sonora APK
+Name: Build Sonora APK
 
 on:
   push:
@@ -23,17 +23,17 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Java 17
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '9.3.1'
           cache-read-only: false
@@ -113,7 +113,7 @@ jobs:
           ls -lh artifacts/Sonora-debug.apk
 
       - name: Upload Sonora APK
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: Sonora-debug-APK
           path: artifacts/Sonora-debug.apk
