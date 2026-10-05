@@ -38,6 +38,11 @@ class SonoraMediaSessionService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
+    override fun onUpdateNotification(session: MediaSession, startInForeground: Boolean) {
+        // Media3 owns the actual notification. Explicitly promote it while audio is active.
+        super.onUpdateNotification(session, startInForeground)
+    }
+
     override fun onTaskRemoved(rootIntent: Intent?) {
         // Keep background audio alive when the user swipes Sonora away from Recents.
         // Media3 will stop the service normally once playback is no longer ongoing.
