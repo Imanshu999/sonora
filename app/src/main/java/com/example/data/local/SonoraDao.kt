@@ -21,6 +21,9 @@ interface SonoraDao {
     @Query("SELECT * FROM tracks WHERE playCount > 0 ORDER BY playCount DESC LIMIT :limit")
     fun getTopPlayedTracks(limit: Int = 20): Flow<List<TrackEntity>>
 
+    @Query("UPDATE tracks SET localUri = NULL, downloadedAt = NULL")
+    suspend fun clearAllDownloadStatuses()
+
     @Query("SELECT * FROM tracks WHERE id = :id LIMIT 1")
     suspend fun getTrackById(id: String): TrackEntity?
 
