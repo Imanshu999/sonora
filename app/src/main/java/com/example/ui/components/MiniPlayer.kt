@@ -15,6 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -47,6 +50,9 @@ fun MiniPlayer(
     playbackState: PlaybackState,
     onExpandPlayer: () -> Unit,
     onTogglePlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onSeekBack: () -> Unit,
+    onSeekForward: () -> Unit,
     onNext: () -> Unit,
     onToggleLike: () -> Unit,
     modifier: Modifier = Modifier
@@ -134,6 +140,36 @@ fun MiniPlayer(
                     )
                 }
 
+                // Previous track
+                IconButton(
+                    onClick = onPrevious,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .testTag("mini_player_previous")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipPrevious,
+                        contentDescription = "Previous Track",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                // 10-second rewind
+                IconButton(
+                    onClick = onSeekBack,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .testTag("mini_player_seek_back")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Replay10,
+                        contentDescription = "Back 10 seconds",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+
                 // Play / Pause button
                 IconButton(
                     onClick = onTogglePlayPause,
@@ -155,6 +191,21 @@ fun MiniPlayer(
                             modifier = Modifier.size(26.dp)
                         )
                     }
+                }
+
+                // 10-second forward
+                IconButton(
+                    onClick = onSeekForward,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .testTag("mini_player_seek_forward")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Forward10,
+                        contentDescription = "Forward 10 seconds",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(21.dp)
+                    )
                 }
 
                 // Next button
