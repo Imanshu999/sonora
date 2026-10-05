@@ -95,13 +95,10 @@ class MusicRepository(
 
                     if ("YOUTUBE" in enabledSources) {
                         tracks += if (config.useTrending) {
-                            youTubeSource.getTrending(12)
+                            youTubeSource.getTrending(24)
                         } else {
-                            config.queries.flatMap {
-                                youTubeSource.search(it, 4)
-                            } + listOfNotNull(config.query).flatMap {
-                                youTubeSource.search(it, 6)
-                            }
+                            config.queries.flatMap { youTubeSource.search(it, 24) } +
+                                listOfNotNull(config.query).flatMap { youTubeSource.search(it, 24) }
                         }
                     }
 
@@ -124,7 +121,7 @@ class MusicRepository(
                             audiusSource.getTrending(12)
                         } else {
                             queries.flatMap {
-                                audiusSource.search(it, 5)
+                                audiusSource.search(it, 24)
                             }
                         }
                     }
@@ -134,7 +131,7 @@ class MusicRepository(
                             jamendoSource.getTrending(12)
                         } else {
                             queries.flatMap {
-                                jamendoSource.search(it, 5)
+                                jamendoSource.search(it, 24)
                             }
                         }
                     }
@@ -144,7 +141,7 @@ class MusicRepository(
                             freeToUseSource.getTrending(12)
                         } else {
                             queries.flatMap {
-                                freeToUseSource.search(it, 5)
+                                freeToUseSource.search(it, 24)
                             }
                         }
                     }
@@ -153,7 +150,7 @@ class MusicRepository(
                         id = config.id,
                         title = config.title,
                         subtitle = config.subtitle,
-                        tracks = tracks.distinctBy { it.id }.take(12),
+                        tracks = tracks.distinctBy { it.id }.take(40),
                         languageRegion = config.languageRegion
                     )
                 }
@@ -305,6 +302,7 @@ class MusicRepository(
             "youtube music", "youtube" -> "YOUTUBE"
             "audius" -> "AUDIUS"
             "jamendo", "jamendo (cc)" -> "JAMENDO"
+            "freetouse", "free to use", "free_to_use" -> "FREE_TO_USE"
             else -> source.uppercase()
         }
 
@@ -317,7 +315,7 @@ class MusicRepository(
             tracks += freeToUseSource.getTrending(20)
 
             if ("YOUTUBE" in parseSourceFilter("ALL")) {
-                tracks += youTubeSource.getTrending(20)
+                tracks += youTubeSource.getTrending(40)
             }
 
             syncWithDatabase(
@@ -328,9 +326,9 @@ class MusicRepository(
     suspend fun getNewReleases(): List<Track> =
         withContext(Dispatchers.IO) {
             val tracks =
-                audiusSource.search("new music", 15) +
-                jamendoSource.search("new music", 15) +
-                freeToUseSource.search("new music", 15)
+                audiusSource.search("new music", 60) +
+                jamendoSource.search("new music", 60) +
+                freeToUseSource.search("new music", 60)
 
             syncWithDatabase(
                 tracks.distinctBy { it.id }
@@ -342,10 +340,10 @@ class MusicRepository(
     ): List<Track> =
         withContext(Dispatchers.IO) {
             val tracks =
-                audiusSource.search(genre, 15) +
-                jamendoSource.search(genre, 15) +
-                youTubeSource.search(genre, 15) +
-                freeToUseSource.search(genre, 15)
+                audiusSource.search(genre, 60) +
+                jamendoSource.search(genre, 60) +
+                youTubeSource.search(genre, 60) +
+                freeToUseSource.search(genre, 60)
 
             syncWithDatabase(
                 tracks.distinctBy { it.id }
@@ -356,52 +354,38 @@ class MusicRepository(
         query: String,
         sourceFilter: String = "ALL"
     ): List<Track> = withContext(Dispatchers.IO) {
-        if (query.isBlank()) {
-            return@withContext emptyList()
-        }
+        if (query.isBlank()) return@withContext emptyList()
 
-        val results = mutableListOf<Track>()
         val enabledSources = parseSourceFilter(sourceFilter)
+        val normalized = query.trim()
 
-        if ("YOUTUBE" in enabledSources) {
-            try {
-                results.addAll(
-                    youTubeSource.search(query)
-                )
-            } catch (_: Exception) {
-            }
+        val results = coroutineScope {
+            val jobs = mutableListOf<kotlinx.coroutines.Deferred<List<Track>>>()
+
+            if ("YOUTUBE" in enabledSources) jobs += async { youTubeSource.search(normalized, 500) }
+            if ("AUDIUS" in enabledSources) jobs += async { audiusSource.search(normalized, 500) }
+            if ("JAMENDO" in enabledSources) jobs += async { jamendoSource.search(normalized, 500) }
+            if ("FREE_TO_USE" in enabledSources) jobs += async { freeToUseSource.search(normalized, 500) }
+
+            jobs.flatMap { job -> runCatching { job.await() }.getOrDefault(emptyList()) }
         }
 
-        if ("AUDIUS" in enabledSources) {
-            try {
-                results.addAll(
-                    audiusSource.search(query)
-                )
-            } catch (_: Exception) {
-            }
-        }
+        val q = normalized.lowercase()
+        val ranked = results
+            .distinctBy { it.id }
+            .sortedWith(
+                compareByDescending<Track> {
+                    when {
+                        it.title.equals(normalized, ignoreCase = true) -> 4
+                        it.title.contains(q, ignoreCase = true) -> 3
+                        it.artistName.contains(q, ignoreCase = true) -> 2
+                        it.albumName.contains(q, ignoreCase = true) || it.genre.contains(q, ignoreCase = true) -> 1
+                        else -> 0
+                    }
+                }.thenBy { it.title.lowercase() }
+            )
 
-        if ("JAMENDO" in enabledSources) {
-            try {
-                results.addAll(
-                    jamendoSource.search(query)
-                )
-            } catch (_: Exception) {
-            }
-        }
-
-        if ("FREE_TO_USE" in enabledSources) {
-            try {
-                results.addAll(
-                    freeToUseSource.search(query)
-                )
-            } catch (_: Exception) {
-            }
-        }
-
-        syncWithDatabase(
-            results.distinctBy { it.id }
-        )
+        syncWithDatabase(ranked)
     }
 
     suspend fun getSyncedLyrics(
