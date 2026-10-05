@@ -30,13 +30,31 @@ class FreeToUseSource(
     override suspend fun search(query: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext emptyList()
 
-        runCatching {
-            api.searchTracks(
-                query = query.trim(),
-                limit = limit.coerceIn(1, 100),
-                offset = 0
-            ).data.orEmpty().mapNotNull { it.toTrack() }
-        }.getOrDefault(emptyList())
+        val target = limit.coerceIn(1, 500)
+        val pageSize = 100
+        val output = LinkedHashMap<String, Track>()
+        var offset = 0
+
+        try {
+            val maxPages = (target + pageSize - 1) / pageSize
+            var pageNumber = 0
+            while (pageNumber < maxPages && output.size < target) {
+                val response = api.searchTracks(
+                    query = query.trim(),
+                    limit = pageSize,
+                    offset = offset
+                )
+                val page = response.data.orEmpty()
+                if (page.isEmpty()) break
+                page.mapNotNull { it.toTrack() }.forEach { output.putIfAbsent(it.id, it) }
+                offset += page.size
+                pageNumber++
+                if (page.size < pageSize) break
+            }
+            output.values.take(target)
+        } catch (_: Exception) {
+            output.values.take(target)
+        }
     }
 
     override suspend fun getStreamUrl(track: Track): String = track.audioUrl
