@@ -14,53 +14,63 @@ class AudiusSource(
 
     override suspend fun getTrending(limit: Int): List<Track> = withContext(Dispatchers.IO) {
         try {
-            val response = audiusApi.getTrending(appName = "SONORA_STREAM")
-            response.data.take(limit).mapNotNull { dto ->
-                val art = dto.artwork?.large ?: dto.artwork?.medium ?: dto.artwork?.small
-                    ?: ""
-                val streamUrl = "https://discoveryprovider.audius.co/v1/tracks/${dto.id}/stream?app_name=SONORA_STREAM"
-                Track(
-                    id = "audius_${dto.id}",
-                    title = dto.title,
-                    artistName = dto.user?.name ?: "Unknown Artist",
-                    albumName = "Audius Discovery",
-                    durationSeconds = dto.duration ?: 180,
-                    audioUrl = streamUrl,
-                    artworkUrl = art,
-                    source = "Audius",
-                    genre = dto.genre ?: "Music"
-                )
-            }
+            audiusApi.getTrending(
+                appName = "SONORA_STREAM",
+                limit = limit.coerceIn(1, 100),
+                offset = 0
+            ).data.map(::toTrack).take(limit)
         } catch (_: Exception) {
             emptyList()
         }
     }
 
     override suspend fun search(query: String, limit: Int): List<Track> = withContext(Dispatchers.IO) {
+        if (query.isBlank()) return@withContext emptyList()
+
+        val target = limit.coerceIn(1, 500)
+        val pageSize = 100
+        val output = LinkedHashMap<String, Track>()
+        var offset = 0
+
         try {
-            val response = audiusApi.searchTracks(query = query, appName = "SONORA_STREAM")
-            response.data.take(limit).mapNotNull { dto ->
-                val art = dto.artwork?.large ?: dto.artwork?.medium ?: dto.artwork?.small
-                    ?: ""
-                val streamUrl = "https://discoveryprovider.audius.co/v1/tracks/${dto.id}/stream?app_name=SONORA_STREAM"
-                Track(
-                    id = "audius_${dto.id}",
-                    title = dto.title,
-                    artistName = dto.user?.name ?: "Unknown Artist",
-                    albumName = "Audius Search",
-                    durationSeconds = dto.duration ?: 180,
-                    audioUrl = streamUrl,
-                    artworkUrl = art,
-                    source = "Audius",
-                    genre = dto.genre ?: ""
-                )
+            val maxPages = (target + pageSize - 1) / pageSize
+            var pageNumber = 0
+            while (pageNumber < maxPages && output.size < target) {
+                val page = audiusApi.searchTracks(
+                    query = query.trim(),
+                    appName = "SONORA_STREAM",
+                    limit = pageSize,
+                    offset = offset
+                ).data
+
+                if (page.isEmpty()) break
+                page.map(::toTrack).forEach { output.putIfAbsent(it.id, it) }
+                offset += page.size
+                pageNumber++
+                if (page.size < pageSize) break
             }
+
+            output.values.take(target)
         } catch (_: Exception) {
-            emptyList()
+            output.values.take(target)
         }
     }
 
-    override suspend fun getStreamUrl(track: Track): String {
-        return track.audioUrl
+    private fun toTrack(dto: com.example.data.remote.AudiusTrackDto): Track {
+        val art = dto.artwork?.large ?: dto.artwork?.medium ?: dto.artwork?.small ?: ""
+        val streamUrl = "https://discoveryprovider.audius.co/v1/tracks/${dto.id}/stream?app_name=SONORA_STREAM"
+        return Track(
+            id = "audius_${dto.id}",
+            title = dto.title,
+            artistName = dto.user?.name ?: "Unknown Artist",
+            albumName = "Audius",
+            durationSeconds = dto.duration ?: 180,
+            audioUrl = streamUrl,
+            artworkUrl = art,
+            source = "Audius",
+            genre = dto.genre ?: "Music"
+        )
     }
+
+    override suspend fun getStreamUrl(track: Track): String = track.audioUrl
 }
