@@ -26,6 +26,13 @@ import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
+import android.Manifest
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Intent
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -82,6 +89,7 @@ fun SettingsScreen(
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showSourceDialog by remember { mutableStateOf(false) }
+    var showBluetoothDialog by remember { mutableStateOf(false) }
 
     val cacheBytes = remember {
         SonoraApplication.instance.cacheDir.walkTopDown().sumOf { it.length() }
@@ -132,6 +140,15 @@ fun SettingsScreen(
                 subtitle = "Derive accent highlights from your wallpaper (Android 12+)",
                 checked = dynamicColor,
                 onCheckedChange = { viewModel.setDynamicColor(it) }
+            )
+        }
+
+        item {
+            SettingsClickableItem(
+                icon = Icons.Default.Security,
+                title = "Bluetooth Audio",
+                subtitle = "Turn Bluetooth on and choose a paired audio device",
+                onClick = { showBluetoothDialog = true }
             )
         }
 
@@ -251,6 +268,10 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showBluetoothDialog) {
+        BluetoothAudioDialog(onDismiss = { showBluetoothDialog = false })
     }
 
     // Theme Dialog
@@ -458,6 +479,81 @@ fun SettingsScreen(
         )
     }
 
+}
+
+@Composable
+private fun BluetoothAudioDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val bluetoothManager = remember { context.getSystemService(BluetoothManager::class.java) }
+    val adapter = bluetoothManager?.adapter
+    var enabled by remember { mutableStateOf(adapter?.isEnabled == true) }
+    val enableLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { enabled = adapter?.isEnabled == true }
+
+    val pairedDevices = remember(enabled) {
+        if (enabled && adapter != null &&
+            (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.BLUETOOTH_CONNECT
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+        ) {
+            adapter.bondedDevices.toList().sortedBy { it.name ?: it.address }
+        } else emptyList()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Bluetooth Audio", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text(
+                    if (enabled) "Bluetooth is on. Your paired audio devices are shown below."
+                    else "Turn Bluetooth on directly from Sonora.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                if (!enabled) {
+                    Button(
+                        onClick = {
+                            adapter?.let {
+                                enableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ElectricPurple)
+                    ) { Text("Turn Bluetooth On") }
+                } else if (pairedDevices.isEmpty()) {
+                    Text(
+                        "No paired devices found. Pair your earbuds/speaker once in Android Bluetooth settings.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    pairedDevices.forEach { device ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    context.startActivity(Intent("android.settings.BLUETOOTH_SETTINGS"))
+                                }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Security, contentDescription = null, tint = ElectricPurple)
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(device.name ?: "Bluetooth device", fontWeight = FontWeight.SemiBold)
+                                Text("Paired • " + device.address, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Done", color = ElectricPurple) }
+        }
+    )
 }
 
 @Composable

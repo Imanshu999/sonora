@@ -46,29 +46,30 @@ class OfflineDownloader(
                 .url(track.audioUrl)
                 .build()
 
-            val response = okHttpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                updateStatus(track.id, DownloadStatus.Failed(track.id, "HTTP error: ${response.code}"))
-                return@withContext Result.failure(Exception("HTTP error ${response.code}"))
-            }
+            okHttpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    updateStatus(track.id, DownloadStatus.Failed(track.id, "HTTP error: ${response.code}"))
+                    return@withContext Result.failure(Exception("HTTP error ${response.code}"))
+                }
 
-            val body = response.body ?: throw Exception("Empty response body")
-            val totalBytes = body.contentLength()
-            var downloadedBytes = 0L
+                val body = response.body ?: throw Exception("Empty response body")
+                val totalBytes = body.contentLength()
+                var downloadedBytes = 0L
 
-            body.byteStream().use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    val buffer = ByteArray(8 * 1024)
-                    var bytesRead: Int
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        output.write(buffer, 0, bytesRead)
-                        downloadedBytes += bytesRead
-                        if (totalBytes > 0) {
-                            val fraction = (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
-                            updateStatus(track.id, DownloadStatus.Progress(track.id, fraction))
+                body.byteStream().use { input ->
+                    FileOutputStream(targetFile).use { output ->
+                        val buffer = ByteArray(8 * 1024)
+                        var bytesRead: Int
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                            downloadedBytes += bytesRead
+                            if (totalBytes > 0) {
+                                val fraction = (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
+                                updateStatus(track.id, DownloadStatus.Progress(track.id, fraction))
+                            }
                         }
+                        output.flush()
                     }
-                    output.flush()
                 }
             }
 
@@ -112,9 +113,8 @@ class OfflineDownloader(
     suspend fun clearAllDownloads(): Boolean = withContext(Dispatchers.IO) {
         try {
             downloadsDir.listFiles()?.forEach { it.delete() }
-            val downloadedTracks = dao.getDownloadedTracks()
-            // Clear in db
-            // Clean up
+            dao.clearAllDownloadStatuses()
+            _downloadStatus.value = emptyMap()
             true
         } catch (_: Exception) {
             false

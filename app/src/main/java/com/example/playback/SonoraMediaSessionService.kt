@@ -1,53 +1,55 @@
 package com.example.playback
 
-import android.app.PendingIntent
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
 import android.content.Intent
-import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
-import com.example.MainActivity
-import com.example.SonoraApplication
+import android.os.Build
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+import com.example.R
 
-/**
- * Owns the MediaSession used by Android's system media controls/lock screen.
- * The actual ExoPlayer remains owned by SonoraApplication so the Compose UI and
- * the service always operate on the same playback queue.
- */
-class SonoraMediaSessionService : MediaSessionService() {
+class SonoraMediaSessionService : Service() {
 
-    private var mediaSession: MediaSession? = null
+    companion object {
+        private const val CHANNEL_ID = "sonora_background_audio"
+        private const val NOTIFICATION_ID = 1001
+    }
 
     override fun onCreate() {
         super.onCreate()
+        createChannel()
+        startForeground(NOTIFICATION_ID, buildGenericNotification())
+    }
 
-        val player = SonoraApplication.instance.player.exoPlayer
-        val sessionActivityIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            1001,
-            sessionActivityIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
-        mediaSession = MediaSession.Builder(this, player)
-            .setId("SonoraMediaSession")
-            .setSessionActivity(pendingIntent)
+    private fun buildGenericNotification(): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText("Background audio")
+            .setOngoing(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
+
+    private fun createChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Background audio",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Keeps Sonora audio playback running in the background."
+                setShowBadge(false)
+                setSound(null, null)
+            }
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        // Keep background audio alive when the user swipes Sonora away from Recents.
-        // Media3 will stop the service normally once playback is no longer ongoing.
-        if (mediaSession?.player?.isPlaying == true) return
-        super.onTaskRemoved(rootIntent)
-    }
-
-    override fun onDestroy() {
-        mediaSession?.runCatching { release() }
-        mediaSession = null
-        super.onDestroy()
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 }

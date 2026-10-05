@@ -37,6 +37,25 @@ object HomeRowCatalog {
         HomeRowConfig("lofi", "Lo-fi", "Chill, study and late-night beats", query = "lofi"),
         HomeRowConfig("rock", "Rock", "Rock discoveries across countries", query = "rock"),
         HomeRowConfig("electronic", "Electronic", "Electronic and dance discoveries", query = "electronic"),
+        HomeRowConfig(
+            "phonk",
+            "🔥 Phonk",
+            "Dedicated Phonk hub — drift, Brazilian, Memphis, wave, house and underground Phonk",
+            queries = listOf(
+                "phonk",
+                "phonk music",
+                "drift phonk",
+                "Brazilian phonk",
+                "Memphis phonk",
+                "wave phonk",
+                "house phonk",
+                "aggressive phonk",
+                "atmospheric phonk",
+                "underground phonk",
+                "cowbell phonk",
+                "phonk funk"
+            )
+        ),
         HomeRowConfig("jazz", "Jazz", "Jazz artists and new discoveries", query = "jazz"),
         HomeRowConfig("top_artists", "Top Artists", "Popular artists surfaced by the enabled sources", useTrending = true)
     )
