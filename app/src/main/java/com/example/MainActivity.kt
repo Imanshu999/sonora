@@ -84,6 +84,11 @@ class MainActivity : ComponentActivity() {
         SonoraViewModelFactory(app.repository, app.player, app.dataStoreManager)
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshHomeIfStale()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
