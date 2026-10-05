@@ -29,6 +29,7 @@ interface JamendoApi {
         @Query("client_id") clientId: String,
         @Query("format") format: String = "json",
         @Query("limit") limit: Int = 30,
+        @Query("offset") offset: Int = 0,
         @Query("boost") boost: String = "popularity_month",
         @Query("include") include: String = "musicinfo",
         @Query("audioformat") audioFormat: String = "mp32"
@@ -40,6 +41,7 @@ interface JamendoApi {
         @Query("client_id") clientId: String,
         @Query("format") format: String = "json",
         @Query("limit") limit: Int = 30,
+        @Query("offset") offset: Int = 0,
         @Query("audioformat") audioFormat: String = "mp32"
     ): JamendoResponse
 
@@ -49,6 +51,7 @@ interface JamendoApi {
         @Query("client_id") clientId: String,
         @Query("format") format: String = "json",
         @Query("limit") limit: Int = 30,
+        @Query("offset") offset: Int = 0,
         @Query("audioformat") audioFormat: String = "mp32"
     ): JamendoResponse
 }
