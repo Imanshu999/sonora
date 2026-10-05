@@ -84,6 +84,7 @@ class SonoraPlayer(
     private var originalQueue: List<Track> = emptyList()
 
     init {
+        SonoraMediaSessionService.activePlayer = exoPlayer
         exoPlayer.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (released) return
@@ -480,6 +481,9 @@ class SonoraPlayer(
     fun release() {
         if (released) return
         released = true
+        if (SonoraMediaSessionService.activePlayer === exoPlayer) {
+            SonoraMediaSessionService.activePlayer = null
+        }
         stopProgressTracker()
         sleepTimerJob?.cancel()
         loadJob?.cancel()
