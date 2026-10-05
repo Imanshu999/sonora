@@ -19,6 +19,7 @@ import com.example.model.EqualizerPreset
 import com.example.model.RepeatMode
 import com.example.model.Track
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -76,6 +77,8 @@ class SonoraPlayer(
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var progressJob: Job? = null
     private var sleepTimerJob: Job? = null
+    private var loadJob: Job? = null
+    @Volatile private var released = false
 
     private var crossfadeSeconds: Int = 2
     private var originalQueue: List<Track> = emptyList()
@@ -142,6 +145,14 @@ class SonoraPlayer(
     }
 
     fun playTrack(track: Track, newQueue: List<Track>? = null) {
+        if (released || track.playbackUri.isBlank()) {
+            _state.value = _state.value.copy(
+                isPlaying = false,
+                isLoading = false,
+                errorMessage = "This track has no playable stream."
+            )
+            return
+        }
         val queue = newQueue ?: _state.value.queue.ifEmpty { listOf(track) }
         originalQueue = queue
         val index = queue.indexOfFirst { it.id == track.id }.let { if (it >= 0) it else 0 }
@@ -166,6 +177,8 @@ class SonoraPlayer(
     }
 
     private fun loadAndPlay(track: Track) {
+        if (released) return
+        loadJob?.cancel()
         val queue = _state.value.queue.ifEmpty { listOf(track) }
         val startIndex = queue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
 
@@ -188,20 +201,29 @@ class SonoraPlayer(
 
         val mediaItems = queue.map(::mediaItemFor)
 
-        if (crossfadeSeconds > 0 && exoPlayer.isPlaying) {
-            // Smooth crossfade out then in while preserving the full queue for system controls.
-            scope.launch {
-                fadeVolume(1f, 0f, 250)
+        loadJob = scope.launch {
+            runCatching {
+                if (crossfadeSeconds > 0 && exoPlayer.isPlaying) {
+                    fadeVolume(1f, 0f, 250)
+                }
+                if (released) return@runCatching
                 exoPlayer.setMediaItems(mediaItems, startIndex, 0L)
                 exoPlayer.prepare()
+                exoPlayer.volume = if (crossfadeSeconds > 0) 0f else 1f
                 exoPlayer.play()
-                fadeVolume(0f, 1f, 350)
+                if (crossfadeSeconds > 0) {
+                    fadeVolume(0f, 1f, 350)
+                }
+            }.onFailure { error ->
+                if (!released) {
+                    Log.e("SonoraPlayer", "Failed to start playback", error)
+                    _state.value = _state.value.copy(
+                        isPlaying = false,
+                        isLoading = false,
+                        errorMessage = "Unable to start this stream. Try another track."
+                    )
+                }
             }
-        } else {
-            exoPlayer.volume = 1f
-            exoPlayer.setMediaItems(mediaItems, startIndex, 0L)
-            exoPlayer.prepare()
-            exoPlayer.play()
         }
     }
 
@@ -219,6 +241,7 @@ class SonoraPlayer(
     }
 
     fun togglePlayPause() {
+        if (released) return
         if (exoPlayer.isPlaying) {
             exoPlayer.pause()
         } else {
@@ -230,11 +253,13 @@ class SonoraPlayer(
     }
 
     fun seekTo(positionMs: Long) {
-        exoPlayer.seekTo(positionMs)
+        if (released) return
+        exoPlayer.seekTo(positionMs.coerceAtLeast(0L))
         _state.value = _state.value.copy(currentPositionMs = positionMs)
     }
 
     fun next() {
+        if (released) return
         val currentQueue = _state.value.queue
         if (currentQueue.isEmpty()) return
 
@@ -264,6 +289,7 @@ class SonoraPlayer(
     }
 
     fun previous() {
+        if (released) return
         // If track played more than 3 seconds, replay from beginning
         if (exoPlayer.currentPosition > 3000L) {
             seekTo(0)
@@ -445,9 +471,13 @@ class SonoraPlayer(
     }
 
     fun release() {
+        if (released) return
+        released = true
         stopProgressTracker()
         sleepTimerJob?.cancel()
+        loadJob?.cancel()
+        scope.cancel()
         equalizerHelper.release()
-        exoPlayer.release()
+        runCatching { exoPlayer.release() }
     }
 }
