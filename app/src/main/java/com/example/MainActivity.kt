@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -131,6 +132,10 @@ fun SonoraMainApp(viewModel: SonoraViewModel) {
 
     val playbackState by viewModel.playbackState.collectAsState()
     val hasTrack = playbackState.currentTrack != null
+
+    BackHandler(enabled = isPlayerExpanded) {
+        isPlayerExpanded = false
+    }
 
     val navItems = remember {
         listOf(
