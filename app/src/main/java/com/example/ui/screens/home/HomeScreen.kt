@@ -1,6 +1,7 @@
 package com.example.ui.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -390,7 +391,8 @@ fun HomeTrackCard(
                         .padding(8.dp)
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(if (isPlaying) VividCyan else ElectricPurple),
+                        .background(Color.Transparent)
+                        .border(1.dp, Color.White.copy(alpha = 0.55f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
