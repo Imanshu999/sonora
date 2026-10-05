@@ -86,6 +86,7 @@ class SonoraPlayer(
     init {
         exoPlayer.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (released) return
                 _state.value = _state.value.copy(isPlaying = isPlaying)
                 if (isPlaying) {
                     startProgressTracker()
@@ -95,6 +96,7 @@ class SonoraPlayer(
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (released) return
                 val id = mediaItem?.mediaId ?: return
                 val index = _state.value.queue.indexOfFirst { it.id == id }
                 if (index >= 0) {
@@ -111,6 +113,7 @@ class SonoraPlayer(
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
+                if (released) return
                 val isLoading = playbackState == Player.STATE_BUFFERING
                 val duration = if (exoPlayer.duration > 0) exoPlayer.duration else 0L
                 _state.value = _state.value.copy(
@@ -120,8 +123,10 @@ class SonoraPlayer(
                 )
 
                 if (playbackState == Player.STATE_ENDED) {
-                    _state.value.currentTrack?.let { onTrackFinished(it) }
-                    handleTrackEnded()
+                    if (!released) {
+                        _state.value.currentTrack?.let { onTrackFinished(it) }
+                        handleTrackEnded()
+                    }
                 }
 
                 if (playbackState == Player.STATE_READY) {
@@ -130,6 +135,7 @@ class SonoraPlayer(
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                if (released) return
                 Log.e("SonoraPlayer", "Playback error on track: ${error.message}", error)
                 _state.value = _state.value.copy(
                     isPlaying = false,
@@ -452,9 +458,10 @@ class SonoraPlayer(
         progressJob?.cancel()
         progressJob = scope.launch {
             while (true) {
-                val current = exoPlayer.currentPosition
+                if (released) break
+                val current = runCatching { exoPlayer.currentPosition }.getOrDefault(0L)
                 val duration = if (exoPlayer.duration > 0) exoPlayer.duration else _state.value.durationMs
-                val buffered = exoPlayer.bufferedPosition
+                val buffered = runCatching { exoPlayer.bufferedPosition }.getOrDefault(0L)
                 _state.value = _state.value.copy(
                     currentPositionMs = current,
                     durationMs = duration,
