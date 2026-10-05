@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,8 +65,12 @@ fun SearchScreen(
     val downloadStatuses by viewModel.downloadStatuses.collectAsState()
     val focusManager = LocalFocusManager.current
 
-    val sources = listOf("ALL", "Jamendo", "Audius", "Free To Use")
-    val trendingTags = listOf("Synthwave", "Cyberpunk", "Acoustic", "Deep House", "Jazz Piano", "Lo-Fi Beats", "Chillout", "Rock Anthem")
+    val sources = listOf("ALL", "YouTube Music", "Jamendo", "Audius", "Free To Use")
+    val trendingTags = listOf(
+        "Trending", "Hindi", "English", "Punjabi", "Phonk", "Brazilian Funk",
+        "Pop", "Hip-Hop", "Electronic", "Lo-Fi", "Rock", "Jazz",
+        "Workout", "Chillout", "Acoustic", "Devotional"
+    )
 
     Column(
         modifier = modifier
@@ -135,17 +140,22 @@ fun SearchScreen(
             // Source filter selector
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Source:",
+                    text = "Source",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 8.dp)
                 )
 
-                sources.forEach { source ->
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(end = 4.dp)
+                ) {
+                    items(sources) { source ->
                     val sourceKey = when (source) {
+                        "YouTube Music" -> "YOUTUBE"
                         "Jamendo" -> "JAMENDO"
                         "Audius" -> "AUDIUS"
                         "Free To Use" -> "FREE_TO_USE"
@@ -158,16 +168,18 @@ fun SearchScreen(
                         label = {
                             Text(
                                 text = if (source == "ALL") "All Sources" else source,
-                                style = MaterialTheme.typography.labelSmall
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = if (source == "Audius") VividCyan else ElectricPurple,
-                            selectedLabelColor = Color.White
+                            selectedLabelColor = if (source == "Audius") Color.Black else Color.White
                         ),
                         shape = RoundedCornerShape(10.dp)
                     )
                 }
+                            }
             }
         }
 
