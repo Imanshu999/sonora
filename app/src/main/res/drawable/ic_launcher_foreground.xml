@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="66dp"
-        android:height="66dp"
-        android:drawable="@drawable/sonora_logo_1791108940400"
-        android:gravity="center" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,18A36,36 0,1 0,54 90A36,36 0,1 0,54 18M54,27A27,27 0,1 1,54 81A27,27 0,1 1,54 27" />
+    <path
+        android:fillColor="#FFA78BFA"
+        android:pathData="M48,38L48,67A9,9 0,1 1,43,59L43,44L65,37L65,62A9,9 0,1 1,60,54L60,31Z" />
+    <path
+        android:fillColor="#FF22D3EE"
+        android:pathData="M29,51L37,47L37,61L29,65Z" />
+</vector>
