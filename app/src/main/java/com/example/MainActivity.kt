@@ -197,6 +197,15 @@ fun SonoraMainApp(viewModel: SonoraViewModel) {
                         playbackState = playbackState,
                         onExpandPlayer = { isPlayerExpanded = true },
                         onTogglePlayPause = { viewModel.togglePlayPause() },
+                        onPrevious = { viewModel.previous() },
+                        onSeekBack = { viewModel.seekTo((playbackState.currentPositionMs - 10_000L).coerceAtLeast(0L)) },
+                        onSeekForward = {
+                            val duration = playbackState.durationMs
+                            viewModel.seekTo(
+                                if (duration > 0) (playbackState.currentPositionMs + 10_000L).coerceAtMost(duration)
+                                else playbackState.currentPositionMs + 10_000L
+                            )
+                        },
                         onNext = { viewModel.next() },
                         onToggleLike = {
                             playbackState.currentTrack?.let { viewModel.toggleLiked(it) }
