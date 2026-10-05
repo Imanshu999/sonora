@@ -95,10 +95,10 @@ class MusicRepository(
 
                     if ("YOUTUBE" in enabledSources) {
                         tracks += if (config.useTrending) {
-                            youTubeSource.getTrending(24)
+                            youTubeSource.getTrending(100)
                         } else {
-                            config.queries.flatMap { youTubeSource.search(it, 24) } +
-                                listOfNotNull(config.query).flatMap { youTubeSource.search(it, 24) }
+                            config.queries.flatMap { youTubeSource.search(it, 100) } +
+                                listOfNotNull(config.query).flatMap { youTubeSource.search(it, 100) }
                         }
                     }
 
@@ -118,30 +118,30 @@ class MusicRepository(
 
                     if ("AUDIUS" in enabledSources) {
                         tracks += if (config.useTrending) {
-                            audiusSource.getTrending(12)
+                            audiusSource.getTrending(100)
                         } else {
                             queries.flatMap {
-                                audiusSource.search(it, 24)
+                                audiusSource.search(it, 100)
                             }
                         }
                     }
 
                     if ("JAMENDO" in enabledSources) {
                         tracks += if (config.useTrending) {
-                            jamendoSource.getTrending(12)
+                            jamendoSource.getTrending(100)
                         } else {
                             queries.flatMap {
-                                jamendoSource.search(it, 24)
+                                jamendoSource.search(it, 100)
                             }
                         }
                     }
 
                     if ("FREE_TO_USE" in enabledSources) {
                         tracks += if (config.useTrending) {
-                            freeToUseSource.getTrending(12)
+                            freeToUseSource.getTrending(100)
                         } else {
                             queries.flatMap {
-                                freeToUseSource.search(it, 24)
+                                freeToUseSource.search(it, 100)
                             }
                         }
                     }
@@ -150,7 +150,7 @@ class MusicRepository(
                         id = config.id,
                         title = config.title,
                         subtitle = config.subtitle,
-                        tracks = tracks.distinctBy { it.id }.take(40),
+                        tracks = tracks.distinctBy { it.id }.shuffled().take(60),
                         languageRegion = config.languageRegion
                     )
                 }
