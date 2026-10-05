@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - master
+      - sonora-upgrade-oct-2026
 
 permissions:
   contents: read
@@ -140,11 +141,25 @@ jobs:
 
           ls -lh artifacts/Sonora-debug.apk
 
+      - name: Package source ZIP
+        shell: bash
+        run: |
+          git archive --format=zip --output=artifacts/Sonora-fixed-source.zip HEAD
+          ls -lh artifacts/Sonora-fixed-source.zip
+
       - name: Upload Sonora APK
         uses: actions/upload-artifact@v4
         with:
           name: Sonora-debug-APK
           path: artifacts/Sonora-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Sonora source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sonora-fixed-source-ZIP
+          path: artifacts/Sonora-fixed-source.zip
           if-no-files-found: error
           retention-days: 30
 
