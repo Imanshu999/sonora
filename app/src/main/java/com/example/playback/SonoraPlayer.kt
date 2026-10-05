@@ -3,8 +3,6 @@ package com.example.playback
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -133,12 +131,12 @@ class SonoraPlayer(
                 _state.value = _state.value.copy(
                     isPlaying = false,
                     isLoading = false,
-                    errorMessage = "Stream source error. Advancing..."
+                    errorMessage = "This stream could not be played. Try another track."
                 )
-                scope.launch {
-                    delay(1500L)
-                    next()
-                }
+                // Do not automatically replace the current screen/queue after a failed
+                // stream. Automatic next() made consecutive bad URLs look like the app
+                // was navigating backwards or closing. The user can choose Next manually.
+                exoPlayer.pause()
             }
         })
     }
