@@ -3,8 +3,8 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Brand accents
-val ElectricPurple = Color(0xFFA855F7)
-val NeonViolet = Color(0xFFC084FC)
+val ElectricPurple = Color(0xFFFFFFFF)
+val NeonViolet = Color(0xFFE5E7EB)
 val VividCyan = Color(0xFF06B6D4)
 val CyanAccent = Color(0xFF22D3EE)
 val AmberGlow = Color(0xFFF59E0B)
