@@ -115,9 +115,10 @@ class SonoraViewModel(
 
     private var searchJob: Job? = null
     private var lastLyricsTrackId: String? = null
+    private var lastHomeRefreshAt: Long = 0L
 
     init {
-        loadHomeData()
+        loadHomeData(forceRefresh = true)
         observeCurrentTrackForLyrics()
         observeLanguageChanges()
     }
@@ -147,6 +148,7 @@ class SonoraViewModel(
                 val trending = repository.getTrendingTracks()
                 val releases = repository.getNewReleases()
                 val genreTracks = repository.getTracksByGenre("Synthwave")
+                lastHomeRefreshAt = System.currentTimeMillis()
                 _homeState.value = _homeState.value.copy(
                     homeRows = rows,
                     trending = trending,
@@ -168,6 +170,13 @@ class SonoraViewModel(
     fun refreshHome() {
         _homeState.value = _homeState.value.copy(isRefreshing = true)
         loadHomeData(forceRefresh = true)
+    }
+
+    fun refreshHomeIfStale(minIntervalMs: Long = 30_000L) {
+        val now = System.currentTimeMillis()
+        if (now - lastHomeRefreshAt >= minIntervalMs && !_homeState.value.isRefreshing) {
+            refreshHome()
+        }
     }
 
     fun setLanguage(language: MusicLanguage) {
